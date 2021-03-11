@@ -12,16 +12,18 @@ namespace
 
 // ---------------------------------- Tokenizer output types ----------------------------------- //
 
+using StringIterator = std::string::const_iterator;
+
 /// <summary>
 /// Returned when the tokenizer cannot recognize the given string.
 /// </summary>
-struct TokenizerCannotRecognize
+struct CannotTokenize
 {};
 
 /// <summary>
 /// Returned when the tokenizer can recognize the given string, and the token has a valid format.
 /// </summary>
-struct TokenizerCanRecognize
+struct CanTokenize
 {
     StringIterator tokenEnd;
     Token::Type    tokenType;
@@ -30,7 +32,7 @@ struct TokenizerCanRecognize
 /// <summary>
 /// Returned when the tokenizer can recognize the given string, but the token has an invalid format.
 /// </summary>
-struct TokenizerCanRecognizeButError : TokenizerCanRecognize
+struct CanTokenizeButError : CanTokenize
 {
     TokenizationError::Type errorType;
 };
@@ -38,12 +40,9 @@ struct TokenizerCanRecognizeButError : TokenizerCanRecognize
 /// <summary>
 /// Union of possible tokenizer output types
 /// </summary>
-using TokenizerOutput
-    = std::variant<TokenizerCannotRecognize, TokenizerCanRecognize, TokenizerCanRecognizeButError>;
+using TokenizerOutput = std::variant<CannotTokenize, CanTokenize, CanTokenizeButError>;
 
 // ---------------------------------------- Tokenizers ----------------------------------------- //
-
-using StringIterator = std::string::const_iterator;
 
 /// <summary>
 /// Token pattern matcher
@@ -53,8 +52,8 @@ using Tokenizer = TokenizerOutput (*)(StringIterator, StringIterator);
 template <Token::Type TokenTypeValue, char Character>
 TokenizerOutput SingleCharacterTokenizer(StringIterator begin, StringIterator end)
 {
-    if (*begin != Character) return TokenizerCannotRecognize {};
-    return TokenizerCanRecognize { begin + 1, TokenTypeValue };
+    if (*begin != Character) return CannotTokenize {};
+    return CanTokenize { begin + 1, TokenTypeValue };
 }
 
 TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
@@ -68,17 +67,17 @@ TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
         });
         if (nonHexadecimalCharIt != tokenEnd)
         {
-            return TokenizerCanRecognizeButError {
+            return CanTokenizeButError {
                 tokenEnd,
                 Token::Type::HexInteger,
                 TokenizationError::Type::InvalidFormat,
             };
         }
 
-        return TokenizerCanRecognize { tokenEnd, Token::Type::HexInteger };
+        return CanTokenize { tokenEnd, Token::Type::HexInteger };
     }
 
-    return TokenizerCannotRecognize {};
+    return CannotTokenize {};
 }
 
 #define DEFINE_COMPLEX_TOKENIZER(InitialCondition, Verification, TokenType)                        \
@@ -91,15 +90,15 @@ TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
                 = std::find_if_not(begin, end, [](char c) { return (Verification); });             \
             if (invalidCharIt != tokenEnd)                                                         \
             {                                                                                      \
-                return TokenizerCanRecognizeButError {                                             \
+                return CanTokenizeButError {                                                       \
                     tokenEnd,                                                                      \
                     Token::Type::TokenType,                                                        \
                     TokenizationError::Type::InvalidFormat,                                        \
                 };                                                                                 \
             }                                                                                      \
-            return TokenizerCanRecognize { tokenEnd, Token::Type::TokenType };                     \
+            return CanTokenize { tokenEnd, Token::Type::TokenType };                               \
         }                                                                                          \
-        return TokenizerCannotRecognize {};                                                        \
+        return CannotTokenize {};                                                                  \
     }
 
 DEFINE_COMPLEX_TOKENIZER(isdigit(*begin), isdigit(c), Integer);
@@ -113,9 +112,9 @@ TokenizerOutput WhitespaceTokenizer(StringIterator begin, StringIterator end)
         auto tokenEnd
             = std::find_if_not(begin, end, [](char c) { return isspace(c) && c != '\n'; });
 
-        return TokenizerCanRecognize { tokenEnd, Token::Type::Whitespace };
+        return CanTokenize { tokenEnd, Token::Type::Whitespace };
     }
-    return TokenizerCannotRecognize {};
+    return CannotTokenize {};
 }
 
 Tokenizer _tokenizers[] = {
@@ -170,17 +169,17 @@ TokenizationResult Tokenize(std::string const& code)
         {
             auto result = tokenizer(begin, end);
 
-            if (std::holds_alternative<TokenizerCanRecognize>(result))
+            if (std::holds_alternative<CanTokenize>(result))
             {
-                auto output = std::get<TokenizerCanRecognize>(result);
+                auto output = std::get<CanTokenize>(result);
                 tokenized   = true;
                 tokens.push_back(MakeToken(output.tokenType, begin, output.tokenEnd, position));
                 begin = output.tokenEnd;
                 break;
             }
-            else if (std::holds_alternative<TokenizerCanRecognizeButError>(result))
+            else if (std::holds_alternative<CanTokenizeButError>(result))
             {
-                auto output = std::get<TokenizerCanRecognizeButError>(result);
+                auto output = std::get<CanTokenizeButError>(result);
                 tokenized   = true;
                 auto token  = MakeToken(output.tokenType, begin, output.tokenEnd, position);
                 tokens.push_back(token);
