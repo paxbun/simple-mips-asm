@@ -169,33 +169,30 @@ TokenizationResult Tokenize(std::string const& code)
         bool tokenized = false;
         for (auto tokenizer : _tokenizers)
         {
-            // clang-format off
-            auto output = tokenizer(begin, end);
-            std::visit(
-                VisitorList {
-                    [&](TokenizerCannotRecognize) { /* Do nothing */ },
-                    [&](TokenizerCanRecognize output) {
-                        tokenized = true;
-                        tokens.push_back(MakeToken(output.tokenType, begin, output.tokenEnd, position));
-                        begin = output.tokenEnd;
-                    },
-                    [&](TokenizerCanRecognizeButError output) {
-                        tokenized = true;
-                        auto token = MakeToken(output.tokenType, begin, output.tokenEnd, position);
-                        tokens.push_back(token);
-                        errors.push_back({
-                            output.errorType,
-                            token.range,
-                        });
-                        begin = output.tokenEnd;
-                    },
-                },
-                output
-            );
-            // clang-format on
+            auto result = tokenizer(begin, end);
 
-            if (tokenized) break;
-        };
+            if (std::holds_alternative<TokenizerCanRecognize>(result))
+            {
+                auto output = std::get<TokenizerCanRecognize>(result);
+                tokenized   = true;
+                tokens.push_back(MakeToken(output.tokenType, begin, output.tokenEnd, position));
+                begin = output.tokenEnd;
+                break;
+            }
+            else if (std::holds_alternative<TokenizerCanRecognizeButError>(result))
+            {
+                auto output = std::get<TokenizerCanRecognizeButError>(result);
+                tokenized   = true;
+                auto token  = MakeToken(output.tokenType, begin, output.tokenEnd, position);
+                tokens.push_back(token);
+                errors.push_back({
+                    output.errorType,
+                    token.range,
+                });
+                begin = output.tokenEnd;
+                break;
+            }
+        }
 
         if (!tokenized)
         {
