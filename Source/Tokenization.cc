@@ -208,5 +208,5 @@ TokenizationResult Tokenize(std::string const& code)
         }
     }
 
-    return { tokens, errors };
+    return { std::move(tokens), std::move(errors) };
 }
