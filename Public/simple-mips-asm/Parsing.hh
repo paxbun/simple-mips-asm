@@ -91,6 +91,7 @@ struct JFormatData
 struct LAFormatData
 {
     LAFormatType     type;
+    uint8_t          destination;
     std::string_view target;
 };
 
