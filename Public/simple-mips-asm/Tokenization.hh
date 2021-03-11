@@ -9,6 +9,34 @@
 #include <vector>
 
 /// <summary>
+/// Represents a position in a source code file
+/// </summary>
+struct Position
+{
+    uint32_t line      = 1;
+    uint32_t character = 1;
+
+    Position MoveRight() const
+    {
+        return Position { line, character + 1 };
+    }
+
+    Position NextLine() const
+    {
+        return Position { line + 1, 1 };
+    }
+};
+
+/// <summary>
+/// Represents a range in a source code file
+/// </summary>
+struct Range
+{
+    Position begin;
+    Position end;
+};
+
+/// <summary>
 /// Represents a token
 /// </summary>
 struct Token
@@ -30,6 +58,7 @@ struct Token
     };
 
     Type             type;
+    Range            range;
     std::string_view value;
 };
 
