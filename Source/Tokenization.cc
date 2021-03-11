@@ -59,7 +59,7 @@ Tokenizer _tokenizers[] = {
 
 }
 
-std::vector<Token> Tokenize(const std::string& code)
+std::vector<Token> Tokenize(std::string const& code)
 {
     auto       begin = code.begin();
     auto const end   = code.end();

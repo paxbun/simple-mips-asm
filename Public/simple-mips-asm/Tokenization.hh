@@ -51,6 +51,6 @@ struct TokenizationException : std::exception
 /// </summary>
 /// <param name="code">the assembly code to tokenize</param>
 /// <returns>tokenization result</returns>
-std::vector<Token> Tokenize(const std::string& code);
+std::vector<Token> Tokenize(std::string const& code);
 
 #endif
