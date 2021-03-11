@@ -1,70 +1,123 @@
 // Copyright (c) 2021 Chanjung Kim (paxbun). All rights reserved.
 // Licensed under the MIT License.
 
+#include <simple-mips-asm/Common.hh>
 #include <simple-mips-asm/Tokenization.hh>
 
 #include <algorithm>
 #include <cctype>
-
-#define DEFINE_COMPLEX_TOKENIZER(TokenizerName, BeginCondition, Condition)                         \
-    bool TokenizerName(StringIterator& begin, StringIterator end, Token& token)                    \
-    {                                                                                              \
-        if (!(BeginCondition)) return false;                                                       \
-                                                                                                   \
-        auto newBegin = std::find_if(begin + 1, end, [](char c) -> bool { return !(Condition); }); \
-        token.type == Token::Type::Integer;                                                        \
-        token.value = MakeStringView(begin, newBegin);                                             \
-        begin       = newBegin;                                                                    \
-    }
+#include <variant>
 
 namespace
 {
 
+// ---------------------------------- Tokenizer output types ----------------------------------- //
+
+/// <summary>
+/// Returned when the tokenizer cannot recognize the given string.
+/// </summary>
+struct TokenizerCannotRecognize
+{};
+
+/// <summary>
+/// Returned when the tokenizer can recognize the given string, and the token has a valid format.
+/// </summary>
+struct TokenizerCanRecognize
+{
+    StringIterator tokenEnd;
+    Token::Type    tokenType;
+};
+
+/// <summary>
+/// Returned when the tokenizer can recognize the given string, but the token has an invalid format.
+/// </summary>
+struct TokenizerCanRecognizeButError : TokenizerCanRecognize
+{
+    TokenizationError::Type errorType;
+};
+
+/// <summary>
+/// Union of possible tokenizer output types
+/// </summary>
+using TokenizerOutput
+    = std::variant<TokenizerCannotRecognize, TokenizerCanRecognize, TokenizerCanRecognizeButError>;
+
+// ---------------------------------------- Tokenizers ----------------------------------------- //
+
 using StringIterator = std::string::const_iterator;
 
-using Tokenizer = bool (*)(StringIterator&, StringIterator, Token&);
-
-std::string_view MakeStringView(StringIterator begin, StringIterator end)
-{
-    return std::string_view(std::addressof(*begin), std::distance(begin, end));
-}
-
-bool IsHexadecimalDigit(char c)
-{
-    return isdigit(c) || ('A' <= tolower(c) && tolower(c) <= 'F');
-}
+/// <summary>
+/// Token pattern matcher
+/// </summary>
+using Tokenizer = TokenizerOutput (*)(StringIterator, StringIterator);
 
 template <Token::Type TokenTypeValue, char Character>
-bool SingleCharacterTokenizer(StringIterator& begin, StringIterator end, Token& token)
+TokenizerOutput SingleCharacterTokenizer(StringIterator begin, StringIterator end)
 {
-    if (*begin != Character) return false;
-
-    auto newBegin = begin + 1;
-    token.type == TokenTypeValue;
-    token.value = MakeStringView(begin, newBegin);
-    begin       = newBegin;
+    if (*begin != Character) return TokenizerCannotRecognize {};
+    return TokenizerCanRecognize { begin + 1, TokenTypeValue };
 }
 
-DEFINE_COMPLEX_TOKENIZER(IntegerTokenizer, isdigit(*begin), isdigit(c))
-
-bool HexIntegerTokenizer(StringIterator& begin, StringIterator end, Token& token)
+TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
 {
-    if (std::distance(begin, end) >= 3 && begin[0] == '0' && begin[1] == 'x'
-        && IsHexadecimalDigit(begin[2]))
+    if (std::distance(begin, end) >= 2 && begin[0] == '0' && begin[1] == 'x')
     {
-        auto newBegin = std::find_if_not(begin + 3, end, IsHexadecimalDigit);
-        token.type == Token::Type::HexInteger;
-        token.value = MakeStringView(begin, newBegin);
-        begin       = newBegin;
-        return true;
+        auto tokenEnd = std::find_if(begin, end, [](char c) { return isspace(c); });
+
+        auto nonHexadecimalCharIt = std::find_if(begin + 2, tokenEnd, [](char c) {
+            return isdigit(c) || ('A' <= toupper(c) && toupper(c) <= 'F');
+        });
+        if (nonHexadecimalCharIt != tokenEnd)
+        {
+            return TokenizerCanRecognizeButError {
+                tokenEnd,
+                Token::Type::HexInteger,
+                TokenizationError::Type::InvalidFormat,
+            };
+        }
+
+        return TokenizerCanRecognize { tokenEnd, Token::Type::HexInteger };
     }
 
-    return false;
+    return TokenizerCannotRecognize {};
 }
 
-DEFINE_COMPLEX_TOKENIZER(WordTokenizer, isalpha(*begin), isdigit(c) || isalpha(c))
+#define DEFINE_COMPLEX_TOKENIZER(InitialCondition, Verification, TokenType)                        \
+    TokenizerOutput TokenType##Tokenizer(StringIterator begin, StringIterator end)                 \
+    {                                                                                              \
+        if (InitialCondition)                                                                      \
+        {                                                                                          \
+            auto tokenEnd = std::find_if(begin, end, [](char c) { return isspace(c); });           \
+            auto invalidCharIt                                                                     \
+                = std::find_if_not(begin, end, [](char c) { return (Verification); });             \
+            if (invalidCharIt != tokenEnd)                                                         \
+            {                                                                                      \
+                return TokenizerCanRecognizeButError {                                             \
+                    tokenEnd,                                                                      \
+                    Token::Type::TokenType,                                                        \
+                    TokenizationError::Type::InvalidFormat,                                        \
+                };                                                                                 \
+            }                                                                                      \
+            return TokenizerCanRecognize { tokenEnd, Token::Type::TokenType };                     \
+        }                                                                                          \
+        return TokenizerCannotRecognize {};                                                        \
+    }
 
-DEFINE_COMPLEX_TOKENIZER(WhitespaceTokenizer, isspace(*begin), isspace(c))
+DEFINE_COMPLEX_TOKENIZER(isdigit(*begin), isdigit(c), Integer);
+
+DEFINE_COMPLEX_TOKENIZER(isalpha(*begin), (isalpha(c) || isdigit(c)), Word);
+
+TokenizerOutput WhitespaceTokenizer(StringIterator begin, StringIterator end)
+{
+    if (isspace(*begin) && *begin != '\n')
+    {
+        auto tokenEnd
+            = std::find_if_not(begin, end, [](char c) { return isspace(c) && c != '\n'; });
+
+        return TokenizerCanRecognize { tokenEnd, Token::Type::Whitespace };
+    }
+    return TokenizerCannotRecognize {};
+}
 
 Tokenizer _tokenizers[] = {
     SingleCharacterTokenizer<Token::Type::Dot, '.'>,
@@ -72,40 +125,92 @@ Tokenizer _tokenizers[] = {
     SingleCharacterTokenizer<Token::Type::Dollar, '$'>,
     SingleCharacterTokenizer<Token::Type::BracketOpen, '('>,
     SingleCharacterTokenizer<Token::Type::BracketClose, ')'>,
-    IntegerTokenizer,
+    SingleCharacterTokenizer<Token::Type::NewLine, '\n'>,
     HexIntegerTokenizer,
+    IntegerTokenizer,
     WordTokenizer,
     WhitespaceTokenizer,
 };
 
+// ----------------------------------------  Utilities ----------------------------------------- //
+
+Token MakeToken(Token::Type type, StringIterator begin, StringIterator end, Position& position)
+{
+    Position beginPos = position, endPos = position;
+    for (auto it = begin; it != end; ++it)
+    {
+        if (*it == '\n') endPos = endPos.NextLine();
+        else
+            endPos = endPos.MoveRight();
+    }
+    position = endPos;
+
+    return Token {
+        type,
+        { beginPos, endPos },
+        std::string_view(std::addressof(*begin), std::distance(begin, end)),
+    };
 }
 
-std::vector<Token> Tokenize(std::string const& code)
+}
+
+TokenizationResult Tokenize(std::string const& code)
 {
     auto       begin = code.begin();
     auto const end   = code.end();
 
-    std::vector<Token> rtn;
+    Position position;
+
+    std::vector<Token>             tokens;
+    std::vector<TokenizationError> errors;
 
     while (begin != end)
     {
-        bool  tokenized = false;
-        Token token;
+        bool tokenized = false;
         for (auto tokenizer : _tokenizers)
         {
-            if (tokenizer(begin, end, token))
-            {
-                tokenized = true;
-                break;
-            }
+            // clang-format off
+            auto output = tokenizer(begin, end);
+            std::visit(
+                VisitorList {
+                    [&](TokenizerCannotRecognize) { /* Do nothing */ },
+                    [&](TokenizerCanRecognize output) {
+                        tokenized = true;
+                        tokens.push_back(MakeToken(output.tokenType, begin, output.tokenEnd, position));
+                        begin = output.tokenEnd;
+                    },
+                    [&](TokenizerCanRecognizeButError output) {
+                        tokenized = true;
+                        auto token = MakeToken(output.tokenType, begin, output.tokenEnd, position);
+                        tokens.push_back(token);
+                        errors.push_back({
+                            output.errorType,
+                            token.range,
+                        });
+                        begin = output.tokenEnd;
+                    },
+                },
+                output
+            );
+            // clang-format on
+
+            if (tokenized) break;
+        };
+
+        if (!tokenized)
+        {
+            auto newPosition = position.MoveRight();
+            if (*begin == '\n') newPosition = position.NextLine();
+
+            errors.push_back({
+                TokenizationError::Type::InvalidCharacter,
+                { position, newPosition },
+            });
+
+            position = newPosition;
+            ++begin;
         }
-
-        if (!tokenized) throw new TokenizationException;
-
-        if (token.type == Token::Type::Whitespace) continue;
-
-        rtn.push_back(token);
     }
 
-    return rtn;
+    return { tokens, errors };
 }

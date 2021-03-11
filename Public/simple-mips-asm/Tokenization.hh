@@ -6,6 +6,7 @@
 
 #include <stdexcept>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 /// <summary>
@@ -51,10 +52,11 @@ struct Token
         Dollar,       // a single dollar sign
         BracketOpen,  // a left round bracket
         BracketClose, // a right round bracket
-        Integer,      // \d+
+        NewLine,      // a single new line character
         HexInteger,   // 0x[0-9a-fA-F]+
+        Integer,      // \d+
         Word,         // [a-zA-Z][0-9a-zA-Z]*
-        Whitespace,
+        Whitespace,   // whitespaces except for \n and \r
     };
 
     Type             type;
@@ -63,16 +65,24 @@ struct Token
 };
 
 /// <summary>
-/// Thrown when the tokenizer encountered an unexpected character.
+/// Represents an error occured during the tokenization phase.
 /// </summary>
-struct TokenizationException : std::exception
+struct TokenizationError
 {
-    TokenizationException() = default;
-
-    virtual const char* what()
+    enum class Type
     {
-        return "Encountered an unexpected character";
-    }
+        InvalidCharacter = 1,
+        InvalidFormat,
+    };
+
+    Type  type;
+    Range range;
+};
+
+struct TokenizationResult
+{
+    std::vector<Token>             tokens;
+    std::vector<TokenizationError> errors;
 };
 
 /// <summary>
@@ -81,6 +91,6 @@ struct TokenizationException : std::exception
 /// </summary>
 /// <param name="code">the assembly code to tokenize</param>
 /// <returns>tokenization result</returns>
-std::vector<Token> Tokenize(std::string const& code);
+TokenizationResult Tokenize(std::string const& code);
 
 #endif
