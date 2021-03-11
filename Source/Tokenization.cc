@@ -29,6 +29,11 @@ std::string_view MakeStringView(StringIterator begin, StringIterator end)
     return std::string_view(std::addressof(*begin), std::distance(begin, end));
 }
 
+bool IsHexadecimalDigit(char c)
+{
+    return isdigit(c) || ('A' <= tolower(c) && tolower(c) <= 'F');
+}
+
 template <Token::Type TokenTypeValue, char Character>
 bool SingleCharacterTokenizer(StringIterator& begin, StringIterator end, Token& token)
 {
@@ -42,6 +47,21 @@ bool SingleCharacterTokenizer(StringIterator& begin, StringIterator end, Token& 
 
 DEFINE_COMPLEX_TOKENIZER(IntegerTokenizer, isdigit(*begin), isdigit(c))
 
+bool HexIntegerTokenizer(StringIterator& begin, StringIterator end, Token& token)
+{
+    if (std::distance(begin, end) >= 3 && begin[0] == '0' && begin[1] == 'x'
+        && IsHexadecimalDigit(begin[2]))
+    {
+        auto newBegin = std::find_if_not(begin + 3, end, IsHexadecimalDigit);
+        token.type == Token::Type::HexInteger;
+        token.value = MakeStringView(begin, newBegin);
+        begin       = newBegin;
+        return true;
+    }
+
+    return false;
+}
+
 DEFINE_COMPLEX_TOKENIZER(WordTokenizer, isalpha(*begin), isdigit(c) || isalpha(c))
 
 DEFINE_COMPLEX_TOKENIZER(WhitespaceTokenizer, isspace(*begin), isspace(c))
@@ -53,6 +73,7 @@ Tokenizer _tokenizers[] = {
     SingleCharacterTokenizer<Token::Type::BracketOpen, '('>,
     SingleCharacterTokenizer<Token::Type::BracketClose, ')'>,
     IntegerTokenizer,
+    HexIntegerTokenizer,
     WordTokenizer,
     WhitespaceTokenizer,
 };

@@ -23,8 +23,9 @@ struct Token
         Dollar,       // a single dollar sign
         BracketOpen,  // a left round bracket
         BracketClose, // a right round bracket
-        Integer,      // (\d)+
-        Word,         // [a-zA-Z]([0-9a-zA-Z])*
+        Integer,      // \d+
+        HexInteger,   // 0x[0-9a-fA-F]+
+        Word,         // [a-zA-Z][0-9a-zA-Z]*
         Whitespace,
     };
 
