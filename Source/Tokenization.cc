@@ -123,6 +123,7 @@ Tokenizer _tokenizers[] = {
     SingleCharacterTokenizer<Token::Type::Dollar, '$'>,
     SingleCharacterTokenizer<Token::Type::BracketOpen, '('>,
     SingleCharacterTokenizer<Token::Type::BracketClose, ')'>,
+    SingleCharacterTokenizer<Token::Type::Comma, ','>,
     SingleCharacterTokenizer<Token::Type::NewLine, '\n'>,
     HexIntegerTokenizer,
     IntegerTokenizer,

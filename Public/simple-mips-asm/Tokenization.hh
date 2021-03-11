@@ -52,6 +52,7 @@ struct Token
         Dollar,       // a single dollar sign
         BracketOpen,  // a left round bracket
         BracketClose, // a right round bracket
+        Comma,        // a comma
         NewLine,      // a single new line character
         HexInteger,   // 0x[0-9a-fA-F]+
         Integer,      // \d+
