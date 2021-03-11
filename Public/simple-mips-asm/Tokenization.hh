@@ -9,26 +9,26 @@
 #include <vector>
 
 /// <summary>
-/// Represents the type of the given token
-/// </summary>
-enum class TokenType
-{
-    Dot,          // a single dot
-    Colon,        // a single colon
-    Dollar,       // a single dollar sign
-    BracketOpen,  // a left round bracket
-    BracketClose, // a right round bracket
-    Integer,      // (\d)+
-    Word,         // [a-zA-Z]([0-9a-zA-Z])*
-    Whitespace,
-};
-
-/// <summary>
 /// Represents a token
 /// </summary>
 struct Token
 {
-    TokenType        type;
+    /// <summary>
+    /// Represents the type of the given token
+    /// </summary>
+    enum class Type
+    {
+        Dot,          // a single dot
+        Colon,        // a single colon
+        Dollar,       // a single dollar sign
+        BracketOpen,  // a left round bracket
+        BracketClose, // a right round bracket
+        Integer,      // (\d)+
+        Word,         // [a-zA-Z]([0-9a-zA-Z])*
+        Whitespace,
+    };
+
+    Type             type;
     std::string_view value;
 };
 

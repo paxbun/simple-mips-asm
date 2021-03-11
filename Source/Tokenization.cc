@@ -12,7 +12,7 @@
         if (!(BeginCondition)) return false;                                                       \
                                                                                                    \
         auto newBegin = std::find_if(begin + 1, end, [](char c) -> bool { return !(Condition); }); \
-        token.type == TokenType::Integer;                                                          \
+        token.type == Token::Type::Integer;                                                        \
         token.value = MakeStringView(begin, newBegin);                                             \
         begin       = newBegin;                                                                    \
     }
@@ -29,7 +29,7 @@ std::string_view MakeStringView(StringIterator begin, StringIterator end)
     return std::string_view(std::addressof(*begin), std::distance(begin, end));
 }
 
-template <TokenType TokenTypeValue, char Character>
+template <Token::Type TokenTypeValue, char Character>
 bool SingleCharacterTokenizer(StringIterator& begin, StringIterator end, Token& token)
 {
     if (*begin != Character) return false;
@@ -47,11 +47,11 @@ DEFINE_COMPLEX_TOKENIZER(WordTokenizer, isalpha(*begin), isdigit(c) || isalpha(c
 DEFINE_COMPLEX_TOKENIZER(WhitespaceTokenizer, isspace(*begin), isspace(c))
 
 Tokenizer _tokenizers[] = {
-    SingleCharacterTokenizer<TokenType::Dot, '.'>,
-    SingleCharacterTokenizer<TokenType::Colon, ':'>,
-    SingleCharacterTokenizer<TokenType::Dollar, '$'>,
-    SingleCharacterTokenizer<TokenType::BracketOpen, '('>,
-    SingleCharacterTokenizer<TokenType::BracketClose, ')'>,
+    SingleCharacterTokenizer<Token::Type::Dot, '.'>,
+    SingleCharacterTokenizer<Token::Type::Colon, ':'>,
+    SingleCharacterTokenizer<Token::Type::Dollar, '$'>,
+    SingleCharacterTokenizer<Token::Type::BracketOpen, '('>,
+    SingleCharacterTokenizer<Token::Type::BracketClose, ')'>,
     IntegerTokenizer,
     WordTokenizer,
     WhitespaceTokenizer,
@@ -81,7 +81,7 @@ std::vector<Token> Tokenize(std::string const& code)
 
         if (!tokenized) throw new TokenizationException;
 
-        if (token.type == TokenType::Whitespace) continue;
+        if (token.type == Token::Type::Whitespace) continue;
 
         rtn.push_back(token);
     }
