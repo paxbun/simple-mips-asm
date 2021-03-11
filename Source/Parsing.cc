@@ -73,20 +73,21 @@ struct CaseInsensitiveHash
     constexpr static size_t _fnvPrime       = 0x00000100000001B3;
 };
 
-bool CompareCaseInsensitive(std::string_view const& lhs, std::string_view const& rhs)
+struct CaseInsensitiveEqual
 {
-    if (lhs.size() != rhs.size()) return false;
-
-    for (size_t i = 0; i < lhs.size(); ++i)
-        if (toupper(lhs[i]) != toupper(rhs[i])) return false;
-
-    return true;
-}
+    constexpr bool operator()(std::string_view const& lhs, std::string_view const& rhs) const
+    {
+        return lhs.size() == rhs.size()
+               && std::equal(lhs.begin(), lhs.end(), rhs.begin(), [](char l, char r) {
+                      return toupper(l) == toupper(r);
+                  });
+    }
+};
 
 template <typename LeftT, typename... ValueTs>
 bool IsOneOf(LeftT left, ValueTs... valuesToCompare)
 {
-    return ((left == valuesToCompare) && ...);
+    return ((left == valuesToCompare) || ...);
 }
 
 template <typename T>
@@ -95,20 +96,24 @@ bool GetInteger(Iterator current, T& output)
     size_t integerValue = 0;
     if (current->type == Token::Type::Integer)
     {
-        auto stringValue = current->value;
-        std::from_chars(stringValue.begin(), stringValue.end(), integerValue, 10);
+        auto stringValue      = current->value;
+        auto stringValueBegin = stringValue.data();
+        auto stringValueEnd   = stringValueBegin + stringValue.size();
+        std::from_chars(stringValueBegin, stringValueEnd, integerValue, 10);
     }
     else if (current->type == Token::Type::HexInteger)
     {
-        auto stringValue = current->value.substr(2);
-        std::from_chars(stringValue.begin(), stringValue.end(), integerValue, 16);
+        auto stringValue      = current->value.substr(2);
+        auto stringValueBegin = stringValue.data();
+        auto stringValueEnd   = stringValueBegin + stringValue.size();
+        std::from_chars(stringValueBegin, stringValueEnd, integerValue, 16);
     }
     else
     {
         return false;
     }
 
-    if (integerValue >= std::numeric_limits<T>::max()) return false;
+    if (integerValue > std::numeric_limits<T>::max()) return false;
 
     output = static_cast<T>(integerValue);
     return true;
@@ -117,7 +122,8 @@ bool GetInteger(Iterator current, T& output)
 // ---------------------------------  Instruction name tables ---------------------------------- //
 
 template <typename T>
-using InstructionTable = std::unordered_map<std::string_view, T, CaseInsensitiveHash>;
+using InstructionTable
+    = std::unordered_map<std::string_view, T, CaseInsensitiveHash, CaseInsensitiveEqual>;
 
 InstructionTable<RFormatFunction> const _rFormatTable {
     { "ADDU"sv, RFormatFunction::ADDU }, { "SUBU"sv, RFormatFunction::SUBU },
@@ -198,13 +204,13 @@ InstructionTable<LAFormatType> const _laFormatTable {
 // type is not the expected type, returns CannotParse with UnexpectedToken.
 #define EXPECT_NEXT(...)                                                                           \
     SKIP_WHITESPACES;                                                                              \
-    if (IsOneOf(current->type, __VA_ARGS__)) UNEXPECTED_TOKEN
+    if (!IsOneOf(current->type, __VA_ARGS__)) UNEXPECTED_TOKEN
 
 // Advances the iterator until non-whitespace token appears. If that first non-whitespace token is
 // not a Word with the given value, returns CannotParse with UnexpectedValue.
 #define EXPECT_WORD(ExpectedValue)                                                                 \
     EXPECT_NEXT(Token::Type::Word);                                                                \
-    if (!CompareCaseInsensitive(current->value, ExpectedValue)) UNEXPECTED_VALUE
+    if (!CaseInsensitiveEqual {}(current->value, ExpectedValue)) UNEXPECTED_VALUE
 
 // Advances the iterator until non-whitespace token appears. If that first non-whitespace token is
 // not a Word where the value is registered in the given table, returns CannotParse with
@@ -218,6 +224,7 @@ InstructionTable<LAFormatType> const _laFormatTable {
 // Checks whether the next incoming tokens indicate a register.
 #define EXPECT_REGISTER(OutputVariableName)                                                        \
     EXPECT_NEXT(Token::Type::Dollar);                                                              \
+    ADVANCE_CURRENT;                                                                               \
     EXPECT_NEXT(Token::Type::Integer);                                                             \
     uint8_t OutputVariableName;                                                                    \
     if (!GetInteger(current, OutputVariableName) || NumRegisters <= OutputVariableName)            \
@@ -225,7 +232,7 @@ InstructionTable<LAFormatType> const _laFormatTable {
 
 // Checks whether the next incoming token indicates an immediate number.
 #define EXPECT_IMM(OutputVariableName)                                                             \
-    EXPECT_NEXT(Token::Type::Integer);                                                             \
+    EXPECT_NEXT(Token::Type::Integer, Token::Type::HexInteger);                                    \
     uint32_t OutputVariableName;                                                                   \
     if (!GetInteger(current, OutputVariableName)) UNEXPECTED_VALUE;
 
@@ -463,12 +470,16 @@ ParserOutput LAFormatInstruction(Iterator begin, Iterator end)
 
     EXPECT_OPCODE(_laFormatTable);
     ADVANCE_CURRENT;
+    EXPECT_REGISTER(destination);
+    ADVANCE_CURRENT;
+    EXPECT_NEXT(Token::Type::Comma);
+    ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Word);
     auto target = current->value;
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
-    RESULT((LAFormatData { type, target }));
+    RESULT((LAFormatData { type, destination, target }));
 }
 
 Parser _parsers[] = {
@@ -486,6 +497,14 @@ Parser _parsers[] = {
     JFormatInstruction,
     LAFormatInstruction,
 };
+
+Iterator SkipEmptyLine(Iterator begin, Iterator end)
+{
+    Iterator current = begin;
+    while (current != end && current->type == Token::Type::Whitespace) ++current;
+    if (current != end && current->type != Token::Type::NewLine) return begin;
+    return current == end ? current : current + 1;
+}
 
 }
 
@@ -517,7 +536,7 @@ ParseResult Parse(std::vector<Token> const& tokens)
             else /* if (std::holds_alternative<CannotParse>(result)) */
             {
                 auto output = std::get<CannotParse>(result);
-                if (maxErrorAt < output.errorAt)
+                if (maxErrorAt <= output.errorAt)
                 {
                     maxErrorAt = output.errorAt;
                     errorType  = output.errorType;
@@ -527,8 +546,14 @@ ParseResult Parse(std::vector<Token> const& tokens)
 
         if (!parsed)
         {
-            errors.push_back({ errorType, maxErrorAt->range });
-            begin = maxErrorAt + 1;
+            auto emptyLineSkipResult = SkipEmptyLine(begin, end);
+            if (emptyLineSkipResult == begin)
+            {
+                errors.push_back({ errorType, maxErrorAt->range });
+                begin = maxErrorAt + 1;
+            }
+            else
+                begin = emptyLineSkipResult;
         }
     }
 
