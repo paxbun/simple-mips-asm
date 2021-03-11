@@ -49,6 +49,15 @@ using TokenizerOutput = std::variant<CannotTokenize, CanTokenize, CanTokenizeBut
 /// </summary>
 using Tokenizer = TokenizerOutput (*)(StringIterator, StringIterator);
 
+/// <summary>
+/// Checks whether the given character is a whitespace character or can be a single character token.
+/// </summary>
+bool IsDelimiter(char c)
+{
+    return isspace(c) || c == '.' || c == ':' || c == '$' || c == '(' || c == ')' || c == ','
+           || c == '\n';
+}
+
 template <Token::Type TokenTypeValue, char Character>
 TokenizerOutput SingleCharacterTokenizer(StringIterator begin, StringIterator end)
 {
@@ -60,9 +69,9 @@ TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
 {
     if (std::distance(begin, end) >= 2 && begin[0] == '0' && begin[1] == 'x')
     {
-        auto tokenEnd = std::find_if(begin, end, [](char c) { return isspace(c); });
+        auto tokenEnd = std::find_if(begin, end, IsDelimiter);
 
-        auto nonHexadecimalCharIt = std::find_if(begin + 2, tokenEnd, [](char c) {
+        auto nonHexadecimalCharIt = std::find_if_not(begin + 2, tokenEnd, [](char c) {
             return isdigit(c) || ('A' <= toupper(c) && toupper(c) <= 'F');
         });
         if (nonHexadecimalCharIt != tokenEnd)
@@ -85,7 +94,7 @@ TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
     {                                                                                              \
         if (InitialCondition)                                                                      \
         {                                                                                          \
-            auto tokenEnd = std::find_if(begin, end, [](char c) { return isspace(c); });           \
+            auto tokenEnd = std::find_if(begin, end, IsDelimiter);                                 \
             auto invalidCharIt                                                                     \
                 = std::find_if_not(begin, end, [](char c) { return (Verification); });             \
             if (invalidCharIt != tokenEnd)                                                         \
