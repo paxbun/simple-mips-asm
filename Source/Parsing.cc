@@ -19,9 +19,39 @@ namespace
 
 constexpr uint8_t NumRegisters = 32;
 
-// ----------------------------------------  Utilities ----------------------------------------- //
+// -----------------------------------  Parser output types ------------------------------------ //
 
 using Iterator = std::vector<Token>::const_iterator;
+
+/// <summary>
+/// Returned when the parser cannot parse the given token stream.
+/// </summary>
+struct CannotParse
+{
+    ParseError::Type errorType;
+    Iterator         errorAt;
+};
+
+/// <summary>
+/// Returned when the parser can parse the given token stream.
+/// </summary>
+struct CanParse
+{
+    FragmentData data;
+    Iterator     fragmentEnd;
+};
+
+/// <summary>
+/// Union of possible parser output types
+/// </summary>
+using ParserOutput = std::variant<CannotParse, CanParse>;
+
+/// <summary>
+/// Pattern matcher
+/// </summary>
+using Parser = ParserOutput (*)(Iterator, Iterator);
+
+// ----------------------------------------  Utilities ----------------------------------------- //
 
 struct CaseInsensitiveHash
 {
@@ -136,31 +166,6 @@ InstructionTable<LAFormatType> const _laFormatTable {
     { "LA"sv, LAFormatType::LA },
 };
 
-// -----------------------------------  Parser output types ------------------------------------ //
-
-/// <summary>
-/// Returned when the parser cannot parse the given token stream.
-/// </summary>
-struct CannotParse
-{
-    ParseError::Type errorType;
-    Iterator         errorAt;
-};
-
-/// <summary>
-/// Returned when the parser can parse the given token stream.
-/// </summary>
-struct CanParse
-{
-    FragmentData data;
-    Iterator     fragmentEnd;
-};
-
-/// <summary>
-/// Union of possible parser output types
-/// </summary>
-using ParserOutput = std::variant<CannotParse, CanParse>;
-
 // -----------------------------------------  Parsers ------------------------------------------ //
 
 // Defines an iterator indicating the current position.
@@ -176,7 +181,7 @@ using ParserOutput = std::variant<CannotParse, CanParse>;
 #define UNEXPECTED_VALUE return CannotParse { ParseError::Type::UnexpectedValue, current };
 
 // Returns CanParse with the given data.
-#define RESULT(data) return CanParse { data, current + 1 };
+#define RESULT(data) return CanParse { data, current == end ? current : current + 1 };
 
 // Advances the iterator defined by DEFINE_CURRENT.
 #define ADVANCE_CURRENT                                                                            \
@@ -218,10 +223,16 @@ using ParserOutput = std::variant<CannotParse, CanParse>;
     if (!GetInteger(current, OutputVariableName) || NumRegisters <= OutputVariableName)            \
         UNEXPECTED_VALUE;
 
+// Checks whether the next incoming token indicates an immediate number.
 #define EXPECT_IMM(OutputVariableName)                                                             \
     EXPECT_NEXT(Token::Type::Integer);                                                             \
     uint32_t OutputVariableName;                                                                   \
     if (!GetInteger(current, OutputVariableName)) UNEXPECTED_VALUE;
+
+// Checks whether the next incoming token is a new line character or EOF.
+#define EXPECT_NEW_LINE_OR_EOF                                                                     \
+    while (current != end && current->type == Token::Type::Whitespace) ++current;                  \
+    if (current != end && current->type != Token::Type::NewLine) UNEXPECTED_TOKEN
 
 // DataDirective: Dot + "data"
 ParserOutput Data(Iterator begin, Iterator end)
@@ -247,7 +258,7 @@ ParserOutput Text(Iterator begin, Iterator end)
     RESULT(TextDirData {});
 }
 
-// WordDirective: Dot + "word" + (Integer | HexInteger)
+// WordDirective: Dot + "word" + (Integer | HexInteger) + (NewLine | EOF)
 ParserOutput Word(Iterator begin, Iterator end)
 {
     DEFINE_CURRENT;
@@ -257,9 +268,10 @@ ParserOutput Word(Iterator begin, Iterator end)
     EXPECT_WORD("word");
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Integer, Token::Type::HexInteger);
-
     uint32_t result;
     if (!GetInteger<uint32_t>(current, result)) UNEXPECTED_VALUE;
+    ADVANCE_CURRENT;
+    EXPECT_NEW_LINE_OR_EOF;
 
     RESULT(WordDirData { result });
 }
@@ -277,7 +289,7 @@ ParserOutput Label(Iterator begin, Iterator end)
     RESULT(LabelData { labelName });
 }
 
-// RFormatInstruction: RFormatOpcode + Register + Register + Register
+// RFormatInstruction: RFormatOpcode + Register + Register + Register + (NewLine | EOF)
 ParserOutput RFormatInstruction(Iterator begin, Iterator end)
 {
     DEFINE_CURRENT;
@@ -293,11 +305,13 @@ ParserOutput RFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_REGISTER(destination);
+    ADVANCE_CURRENT;
+    EXPECT_NEW_LINE_OR_EOF;
 
     RESULT((RFormatData { source1, source2, destination, type }));
 }
 
-// JRFormatInstruction: JRFormatOpcode + Register
+// JRFormatInstruction: JRFormatOpcode + Register + (NewLine | EOF)
 ParserOutput JRFormatInstruction(Iterator begin, Iterator end)
 {
     DEFINE_CURRENT;
@@ -305,11 +319,14 @@ ParserOutput JRFormatInstruction(Iterator begin, Iterator end)
     EXPECT_OPCODE(_jrFormatTable);
     ADVANCE_CURRENT;
     EXPECT_REGISTER(source);
+    ADVANCE_CURRENT;
+    EXPECT_NEW_LINE_OR_EOF;
 
     RESULT((JRFormatData { source, type }));
 }
 
-// SRFormatInstruction: SRFormatOpcode + Register + Register + (Integer | HexInteger)
+// SRFormatInstruction: SRFormatOpcode + Register + Register + (Integer | HexInteger) + (NewLine |
+// EOF)
 ParserOutput SRFormatInstruction(Iterator begin, Iterator end)
 {
     DEFINE_CURRENT;
@@ -325,13 +342,15 @@ ParserOutput SRFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(shiftAmount);
-
     if (shiftAmount >= 32) UNEXPECTED_VALUE;
+    ADVANCE_CURRENT;
+    EXPECT_NEW_LINE_OR_EOF;
 
     RESULT((SRFormatData { source, destination, static_cast<uint8_t>(shiftAmount), type }));
 }
 
-// IFormatInstruction: IFormatOpcode + Register + Register + (Integer | HexInteger)
+// IFormatInstruction: IFormatOpcode + Register + Register + (Integer | HexInteger) + (NewLine |
+// EOF)
 ParserOutput IFormatInstruction(Iterator begin, Iterator end)
 {
     DEFINE_CURRENT;
@@ -347,13 +366,14 @@ ParserOutput IFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(immediate);
-
     if (immediate >= std::numeric_limits<uint16_t>::max()) UNEXPECTED_VALUE;
+    ADVANCE_CURRENT;
+    EXPECT_NEW_LINE_OR_EOF;
 
     RESULT((IFormatData { type, destination, source, static_cast<uint16_t>(immediate) }));
 }
 
-// BIFormatInstruction: BIFormatOpcode + Register + Register + Word
+// BIFormatInstruction: BIFormatOpcode + Register + Register + Word + (NewLine | EOF)
 ParserOutput BIFormatInstruction(Iterator begin, Iterator end)
 {
     DEFINE_CURRENT;
@@ -370,11 +390,13 @@ ParserOutput BIFormatInstruction(Iterator begin, Iterator end)
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Word);
     auto target = current->value;
+    ADVANCE_CURRENT;
+    EXPECT_NEW_LINE_OR_EOF;
 
     RESULT((BIFormatData { type, destination, source, target }));
 }
 
-// IIFormatInstruction: IIFormatOpcode + Register + (Integer | HexInteger)
+// IIFormatInstruction: IIFormatOpcode + Register + (Integer | HexInteger) + (NewLine | EOF)
 ParserOutput IIFormatInstruction(Iterator begin, Iterator end)
 {
     DEFINE_CURRENT;
@@ -386,14 +408,15 @@ ParserOutput IIFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(immediate);
-
     if (immediate >= std::numeric_limits<uint16_t>::max()) UNEXPECTED_VALUE;
+    ADVANCE_CURRENT;
+    EXPECT_NEW_LINE_OR_EOF;
 
     RESULT((IIFormatData { type, destination, static_cast<uint16_t>(immediate) }));
 }
 
 // OIFormatInstruction: OIFormatOpcode + Register + (Integer | HexInteger) + BracketOpen + Register
-// + BracketClose
+// + BracketClose + (NewLine | EOF)
 ParserOutput OIFormatInstruction(Iterator begin, Iterator end)
 {
     DEFINE_CURRENT;
@@ -412,11 +435,13 @@ ParserOutput OIFormatInstruction(Iterator begin, Iterator end)
     EXPECT_REGISTER(operand1);
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::BracketClose);
+    ADVANCE_CURRENT;
+    EXPECT_NEW_LINE_OR_EOF;
 
     RESULT((OIFormatData { type, operand1, operand2, static_cast<uint16_t>(offset) }));
 }
 
-// JFormatInstruction: JFormatOpcode + Word
+// JFormatInstruction: JFormatOpcode + Word + (NewLine | EOF)
 ParserOutput JFormatInstruction(Iterator begin, Iterator end)
 {
     DEFINE_CURRENT;
@@ -425,11 +450,13 @@ ParserOutput JFormatInstruction(Iterator begin, Iterator end)
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Word);
     auto target = current->value;
+    ADVANCE_CURRENT;
+    EXPECT_NEW_LINE_OR_EOF;
 
     RESULT((JFormatData { type, target }));
 }
 
-// LAFormatInstruction: LAFormatOpcode + Word
+// LAFormatInstruction: LAFormatOpcode + Word + (NewLine | EOF)
 ParserOutput LAFormatInstruction(Iterator begin, Iterator end)
 {
     DEFINE_CURRENT;
@@ -438,9 +465,27 @@ ParserOutput LAFormatInstruction(Iterator begin, Iterator end)
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Word);
     auto target = current->value;
+    ADVANCE_CURRENT;
+    EXPECT_NEW_LINE_OR_EOF;
 
     RESULT((LAFormatData { type, target }));
 }
+
+Parser _parsers[] = {
+    Data,
+    Text,
+    Word,
+    Label,
+    RFormatInstruction,
+    JRFormatInstruction,
+    SRFormatInstruction,
+    IFormatInstruction,
+    BIFormatInstruction,
+    IIFormatInstruction,
+    OIFormatInstruction,
+    JFormatInstruction,
+    LAFormatInstruction,
+};
 
 }
 
@@ -452,7 +497,40 @@ ParseResult Parse(std::vector<Token> const& tokens)
     auto       begin = tokens.begin();
     auto const end   = tokens.end();
 
-    while (begin != end) {}
+    while (begin != end)
+    {
+        ParseError::Type errorType;
+        Iterator         maxErrorAt = begin;
+        bool             parsed     = false;
+        for (auto parser : _parsers)
+        {
+            auto result = parser(begin, end);
+            if (std::holds_alternative<CanParse>(result))
+            {
+                auto output = std::get<CanParse>(result);
+                fragments.push_back(
+                    { output.data, { begin->range.begin, output.fragmentEnd[-1].range.end } });
+                begin  = output.fragmentEnd;
+                parsed = true;
+                break;
+            }
+            else /* if (std::holds_alternative<CannotParse>(result)) */
+            {
+                auto output = std::get<CannotParse>(result);
+                if (maxErrorAt < output.errorAt)
+                {
+                    maxErrorAt = output.errorAt;
+                    errorType  = output.errorType;
+                }
+            }
+        }
+
+        if (!parsed)
+        {
+            errors.push_back({ errorType, maxErrorAt->range });
+            begin = maxErrorAt + 1;
+        }
+    }
 
     return { std::move(fragments), std::move(errors) };
 }
