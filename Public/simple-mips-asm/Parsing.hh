@@ -119,7 +119,7 @@ struct Fragment
 /// <summary>
 /// Represents an error occured during the parsing phase.
 /// </summary>
-struct ParseError
+struct ParsingError
 {
     enum class Type
     {
@@ -137,8 +137,8 @@ struct ParseError
 /// </summary>
 struct ParseResult
 {
-    std::vector<Fragment>   fragments;
-    std::vector<ParseError> errors;
+    std::vector<Fragment>     fragments;
+    std::vector<ParsingError> errors;
 };
 
 /// <summary>

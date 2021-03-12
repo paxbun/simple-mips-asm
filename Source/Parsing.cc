@@ -28,8 +28,8 @@ using Iterator = std::vector<Token>::const_iterator;
 /// </summary>
 struct CannotParse
 {
-    ParseError::Type errorType;
-    Iterator         errorAt;
+    ParsingError::Type errorType;
+    Iterator           errorAt;
 };
 
 /// <summary>
@@ -178,13 +178,13 @@ InstructionTable<LAFormatType> const _laFormatTable {
 #define DEFINE_CURRENT Iterator current = begin
 
 // Returns CannotParse with UnexpectedEof.
-#define UNEXPECTED_EOF return CannotParse { ParseError::Type::UnexpectedEof, current };
+#define UNEXPECTED_EOF return CannotParse { ParsingError::Type::UnexpectedEof, current };
 
 // Returns CannotParse with UnexpectedToken.
-#define UNEXPECTED_TOKEN return CannotParse { ParseError::Type::UnexpectedToken, current };
+#define UNEXPECTED_TOKEN return CannotParse { ParsingError::Type::UnexpectedToken, current };
 
 // Returns CannotParse with UnexpectedValue.
-#define UNEXPECTED_VALUE return CannotParse { ParseError::Type::UnexpectedValue, current };
+#define UNEXPECTED_VALUE return CannotParse { ParsingError::Type::UnexpectedValue, current };
 
 // Returns CanParse with the given data.
 #define RESULT(data) return CanParse { data, current == end ? current : current + 1 };
@@ -193,7 +193,7 @@ InstructionTable<LAFormatType> const _laFormatTable {
 #define ADVANCE_CURRENT                                                                            \
     {                                                                                              \
         ++current;                                                                                 \
-        if (current == end) return CannotParse { ParseError::Type::UnexpectedEof, current };       \
+        if (current == end) return CannotParse { ParsingError::Type::UnexpectedEof, current };     \
     }
 
 // Advances the iterator until non-whitespace token appears.
@@ -510,17 +510,17 @@ Iterator SkipEmptyLine(Iterator begin, Iterator end)
 
 ParseResult Parse(std::vector<Token> const& tokens)
 {
-    std::vector<Fragment>   fragments;
-    std::vector<ParseError> errors;
+    std::vector<Fragment>     fragments;
+    std::vector<ParsingError> errors;
 
     auto       begin = tokens.begin();
     auto const end   = tokens.end();
 
     while (begin != end)
     {
-        ParseError::Type errorType;
-        Iterator         maxErrorAt = begin;
-        bool             parsed     = false;
+        ParsingError::Type errorType;
+        Iterator           maxErrorAt = begin;
+        bool               parsed     = false;
         for (auto parser : _parsers)
         {
             auto result = parser(begin, end);
