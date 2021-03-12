@@ -61,7 +61,8 @@ bool IsDelimiter(char c)
 template <Token::Type TokenTypeValue, char Character>
 TokenizerOutput SingleCharacterTokenizer(StringIterator begin, StringIterator end)
 {
-    if (*begin != Character) return CannotTokenize {};
+    if (*begin != Character)
+        return CannotTokenize {};
     return CanTokenize { begin + 1, TokenTypeValue };
 }
 
@@ -147,7 +148,8 @@ Token MakeToken(Token::Type type, StringIterator begin, StringIterator end, Posi
     Position beginPos = position, endPos = position;
     for (auto it = begin; it != end; ++it)
     {
-        if (*it == '\n') endPos = endPos.NextLine();
+        if (*it == '\n')
+            endPos = endPos.NextLine();
         else
             endPos = endPos.MoveRight();
     }
@@ -205,7 +207,8 @@ TokenizationResult Tokenize(std::string const& code)
         if (!tokenized)
         {
             auto newPosition = position.MoveRight();
-            if (*begin == '\n') newPosition = position.NextLine();
+            if (*begin == '\n')
+                newPosition = position.NextLine();
 
             errors.push_back({
                 TokenizationError::Type::InvalidCharacter,

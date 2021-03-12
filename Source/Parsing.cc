@@ -113,7 +113,8 @@ bool GetInteger(Iterator current, T& output)
         return false;
     }
 
-    if (integerValue > std::numeric_limits<T>::max()) return false;
+    if (integerValue > std::numeric_limits<T>::max())
+        return false;
 
     output = static_cast<T>(integerValue);
     return true;
@@ -193,7 +194,8 @@ InstructionTable<LAFormatType> const _laFormatTable {
 #define ADVANCE_CURRENT                                                                            \
     {                                                                                              \
         ++current;                                                                                 \
-        if (current == end) return CannotParse { ParsingError::Type::UnexpectedEof, current };     \
+        if (current == end)                                                                        \
+            return CannotParse { ParsingError::Type::UnexpectedEof, current };                     \
     }
 
 // Advances the iterator until non-whitespace token appears.
@@ -204,13 +206,15 @@ InstructionTable<LAFormatType> const _laFormatTable {
 // type is not the expected type, returns CannotParse with UnexpectedToken.
 #define EXPECT_NEXT(...)                                                                           \
     SKIP_WHITESPACES;                                                                              \
-    if (!IsOneOf(current->type, __VA_ARGS__)) UNEXPECTED_TOKEN
+    if (!IsOneOf(current->type, __VA_ARGS__))                                                      \
+    UNEXPECTED_TOKEN
 
 // Advances the iterator until non-whitespace token appears. If that first non-whitespace token is
 // not a Word with the given value, returns CannotParse with UnexpectedValue.
 #define EXPECT_WORD(ExpectedValue)                                                                 \
     EXPECT_NEXT(Token::Type::Word);                                                                \
-    if (!CaseInsensitiveEqual {}(current->value, ExpectedValue)) UNEXPECTED_VALUE
+    if (!CaseInsensitiveEqual {}(current->value, ExpectedValue))                                   \
+    UNEXPECTED_VALUE
 
 // Advances the iterator until non-whitespace token appears. If that first non-whitespace token is
 // not a Word where the value is registered in the given table, returns CannotParse with
@@ -218,7 +222,8 @@ InstructionTable<LAFormatType> const _laFormatTable {
 #define EXPECT_OPCODE(Table)                                                                       \
     EXPECT_NEXT(Token::Type::Word);                                                                \
     auto it = Table.find(current->value);                                                          \
-    if (it == Table.end()) UNEXPECTED_VALUE;                                                       \
+    if (it == Table.end())                                                                         \
+        UNEXPECTED_VALUE;                                                                          \
     auto type = it->second;
 
 // Checks whether the next incoming tokens indicate a register.
@@ -234,12 +239,14 @@ InstructionTable<LAFormatType> const _laFormatTable {
 #define EXPECT_IMM(OutputVariableName)                                                             \
     EXPECT_NEXT(Token::Type::Integer, Token::Type::HexInteger);                                    \
     uint32_t OutputVariableName;                                                                   \
-    if (!GetInteger(current, OutputVariableName)) UNEXPECTED_VALUE;
+    if (!GetInteger(current, OutputVariableName))                                                  \
+        UNEXPECTED_VALUE;
 
 // Checks whether the next incoming token is a new line character or EOF.
 #define EXPECT_NEW_LINE_OR_EOF                                                                     \
     while (current != end && current->type == Token::Type::Whitespace) ++current;                  \
-    if (current != end && current->type != Token::Type::NewLine) UNEXPECTED_TOKEN
+    if (current != end && current->type != Token::Type::NewLine)                                   \
+    UNEXPECTED_TOKEN
 
 // DataDirective: Dot + "data"
 ParserOutput Data(Iterator begin, Iterator end)
@@ -276,7 +283,8 @@ ParserOutput Word(Iterator begin, Iterator end)
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Integer, Token::Type::HexInteger);
     uint32_t result;
-    if (!GetInteger<uint32_t>(current, result)) UNEXPECTED_VALUE;
+    if (!GetInteger<uint32_t>(current, result))
+        UNEXPECTED_VALUE;
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
@@ -349,7 +357,8 @@ ParserOutput SRFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(shiftAmount);
-    if (shiftAmount >= 32) UNEXPECTED_VALUE;
+    if (shiftAmount >= 32)
+        UNEXPECTED_VALUE;
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
@@ -373,7 +382,8 @@ ParserOutput IFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(immediate);
-    if (immediate >= std::numeric_limits<uint16_t>::max()) UNEXPECTED_VALUE;
+    if (immediate >= std::numeric_limits<uint16_t>::max())
+        UNEXPECTED_VALUE;
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
@@ -415,7 +425,8 @@ ParserOutput IIFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(immediate);
-    if (immediate >= std::numeric_limits<uint16_t>::max()) UNEXPECTED_VALUE;
+    if (immediate >= std::numeric_limits<uint16_t>::max())
+        UNEXPECTED_VALUE;
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
@@ -435,7 +446,8 @@ ParserOutput OIFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(offset);
-    if (offset >= std::numeric_limits<uint16_t>::max()) UNEXPECTED_VALUE;
+    if (offset >= std::numeric_limits<uint16_t>::max())
+        UNEXPECTED_VALUE;
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::BracketOpen);
     ADVANCE_CURRENT;
@@ -502,7 +514,8 @@ Iterator SkipEmptyLine(Iterator begin, Iterator end)
 {
     Iterator current = begin;
     while (current != end && current->type == Token::Type::Whitespace) ++current;
-    if (current != end && current->type != Token::Type::NewLine) return begin;
+    if (current != end && current->type != Token::Type::NewLine)
+        return begin;
     return current == end ? current : current + 1;
 }
 
