@@ -106,7 +106,7 @@ union InstrConverter
 
     Instr* operator->()
     {
-        return instr;
+        return &instr;
     }
 
     operator uint32_t() const
