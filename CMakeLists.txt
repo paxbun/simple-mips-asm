@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Library definitions
 add_library(simple-mips-asm STATIC
-    ${PROJECT_SOURCE_DIR}/Source/Assembler.cc
+    ${PROJECT_SOURCE_DIR}/Source/Generation.cc
     ${PROJECT_SOURCE_DIR}/Source/Parsing.cc
     ${PROJECT_SOURCE_DIR}/Source/Tokenization.cc
 )
