@@ -17,12 +17,12 @@ struct Position
     uint32_t line      = 1;
     uint32_t character = 1;
 
-    Position MoveRight() const
+    constexpr Position MoveRight() const noexcept
     {
         return Position { line, character + 1 };
     }
 
-    Position NextLine() const
+    constexpr Position NextLine() const noexcept
     {
         return Position { line + 1, 1 };
     }

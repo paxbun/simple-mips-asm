@@ -102,14 +102,14 @@ union InstrConverter
 
     static_assert(sizeof(Instr) == sizeof(uint32_t));
 
-    InstrConverter() : word { 0 } {}
+    constexpr InstrConverter() noexcept : word { 0 } {}
 
-    Instr* operator->()
+    constexpr Instr* operator->() noexcept
     {
         return &instr;
     }
 
-    operator uint32_t() const
+    constexpr operator uint32_t() const noexcept
     {
         return word;
     }
@@ -131,12 +131,12 @@ struct Address
     BaseType base;
     uint32_t offset;
 
-    void MoveToNext()
+    constexpr void MoveToNext() noexcept
     {
         offset += 4;
     }
 
-    operator uint32_t() const
+    constexpr operator uint32_t() const noexcept
     {
         return static_cast<uint32_t>(base) + offset;
     }
