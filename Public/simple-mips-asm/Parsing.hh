@@ -117,7 +117,7 @@ struct Fragment
 };
 
 /// <summary>
-/// Represents an error occured during the parsing phase.
+/// Represents an error occurred during the parsing phase.
 /// </summary>
 struct ParsingError
 {

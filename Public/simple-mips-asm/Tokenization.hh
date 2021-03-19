@@ -66,7 +66,7 @@ struct Token
 };
 
 /// <summary>
-/// Represents an error occured during the tokenization phase.
+/// Represents an error occurred during the tokenization phase.
 /// </summary>
 struct TokenizationError
 {
