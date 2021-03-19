@@ -113,7 +113,7 @@ TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
 
 DEFINE_COMPLEX_TOKENIZER(isdigit(*begin), isdigit(c), Integer);
 
-DEFINE_COMPLEX_TOKENIZER(isalpha(*begin), (isalpha(c) || isdigit(c)), Word);
+DEFINE_COMPLEX_TOKENIZER(isalpha(*begin), (isalpha(c) || isdigit(c) || c == '_'), Word);
 
 TokenizerOutput WhitespaceTokenizer(StringIterator begin, StringIterator end)
 {
