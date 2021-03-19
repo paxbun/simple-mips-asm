@@ -155,10 +155,10 @@ using LabelTable = std::unordered_map<std::string_view, Address>;
 /// </summary>
 struct ScanResult
 {
-    uint32_t           numDataWords;
-    uint32_t           numTextWords;
-    LabelTable         labelTable;
-    std::vector<Range> duplicateLabelRanges;
+    uint32_t                     numDataWords;
+    uint32_t                     numTextWords;
+    LabelTable                   labelTable;
+    std::vector<GenerationError> errors;
 };
 
 /// <summary>
@@ -169,10 +169,10 @@ struct ScanResult
 /// <returns>scanning result</returns>
 ScanResult ScanFragments(std::vector<Fragment> const& fragments)
 {
-    uint32_t           numDataWords = 0;
-    uint32_t           numTextWords = 0;
-    LabelTable         labelTable;
-    std::vector<Range> duplicateLabelRanges;
+    uint32_t                     numDataWords = 0;
+    uint32_t                     numTextWords = 0;
+    LabelTable                   labelTable;
+    std::vector<GenerationError> errors;
 
     Address::BaseType base                 = Address::BaseType::TextSegment;
     uint32_t*         pNumWordsToIncrement = &numTextWords;
@@ -194,7 +194,10 @@ ScanResult ScanFragments(std::vector<Fragment> const& fragments)
             auto labelData = std::get<LabelData>(fragment.data);
             if (auto it = labelTable.find(labelData.value); it != labelTable.end())
             {
-                duplicateLabelRanges.push_back(fragment.range);
+                errors.push_back(GenerationError {
+                    GenerationError::Type::LabelAlreadyDefined,
+                    fragment.range,
+                });
                 continue;
             }
 
@@ -203,7 +206,29 @@ ScanResult ScanFragments(std::vector<Fragment> const& fragments)
         }
         else if (std::holds_alternative<LAFormatData>(fragment.data))
         {
-            *pNumWordsToIncrement += 2;
+            auto const& formatData = std::get<LAFormatData>(fragment.data);
+
+            // Assumptions:
+            // 1. .data segment always comes first
+            // 2. an address pointing to .text segment cannot be the operand of a LA format
+            // instruction.
+            if (auto it = labelTable.find(formatData.target);
+                it != labelTable.end() && it->second.base == Address::BaseType::DataSegment)
+            {
+                if ((it->second.offset & 0xFFFF) == 0)
+                    *pNumWordsToIncrement += 1;
+                else
+                    *pNumWordsToIncrement += 2;
+            }
+            else
+            {
+                // this contradicts to the assumption 2
+                errors.push_back(GenerationError {
+                    GenerationError::Type::OperandIsLabelInTextSegment,
+                    fragment.range,
+                });
+                continue;
+            }
         }
         else
         {
@@ -211,7 +236,7 @@ ScanResult ScanFragments(std::vector<Fragment> const& fragments)
         }
     }
 
-    return { numDataWords, numTextWords, std::move(labelTable), std::move(duplicateLabelRanges) };
+    return { numDataWords, numTextWords, std::move(labelTable), std::move(errors) };
 }
 
 GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
@@ -220,7 +245,7 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
     std::vector<GenerationError> errors;
     std::vector<uint32_t>        data;
     std::vector<uint32_t>        text;
-    std::vector<uint32_t>*       target = &text;
+    std::vector<uint32_t>*       pTarget = &text;
 
     data.reserve(scanResult.numDataWords);
     text.reserve(scanResult.numTextWords);
@@ -235,16 +260,18 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
     {
         if (std::holds_alternative<DataDirData>(fragment.data))
         {
+            pTarget        = &data;
             pTargetAddress = &dataAddress;
         }
         else if (std::holds_alternative<TextDirData>(fragment.data))
         {
+            pTarget        = &text;
             pTargetAddress = &textAddress;
         }
         else if (std::holds_alternative<WordDirData>(fragment.data))
         {
             auto wordDirData = std::get<WordDirData>(fragment.data);
-            target->push_back(wordDirData.value);
+            pTarget->push_back(wordDirData.value);
             pTargetAddress->MoveToNext();
         }
         else if (std::holds_alternative<LabelData>(fragment.data))
@@ -259,7 +286,7 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             instr->destination = data.destination;
             instr->function    = static_cast<uint32_t>(data.function);
 
-            target->push_back(instr);
+            pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
         }
         else if (std::holds_alternative<JRFormatData>(fragment.data))
@@ -270,7 +297,7 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             instr->source   = data.source;
             instr->function = static_cast<uint32_t>(data.function);
 
-            target->push_back(instr);
+            pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
         }
         else if (std::holds_alternative<SRFormatData>(fragment.data))
@@ -283,7 +310,7 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             instr->shiftAmount = data.shiftAmount;
             instr->function    = static_cast<uint32_t>(data.function);
 
-            target->push_back(instr);
+            pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
         }
         else if (std::holds_alternative<IFormatData>(fragment.data))
@@ -296,12 +323,12 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             instr->destination = data.destination;
             instr->immediate   = data.immediate;
 
-            target->push_back(instr);
+            pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
         }
         else if (std::holds_alternative<BIFormatData>(fragment.data))
         {
-            auto data = std::get<BIFormatData>(fragment.data);
+            auto const& data = std::get<BIFormatData>(fragment.data);
 
             auto it = labelTable.find(data.target);
             if (it == labelTable.end())
@@ -333,7 +360,7 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             instr->destination = data.destination;
             instr->offset      = difference / 4;
 
-            target->push_back(instr);
+            pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
         }
         else if (std::holds_alternative<IIFormatData>(fragment.data))
@@ -345,7 +372,7 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             instr->destination = data.destination;
             instr->immediate   = data.immediate;
 
-            target->push_back(instr);
+            pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
         }
         else if (std::holds_alternative<OIFormatData>(fragment.data))
@@ -358,12 +385,12 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             instr->operand2  = data.operand2;
             instr->offset    = data.offset;
 
-            target->push_back(instr);
+            pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
         }
         else if (std::holds_alternative<JFormatData>(fragment.data))
         {
-            auto data = std::get<JFormatData>(fragment.data);
+            auto const& data = std::get<JFormatData>(fragment.data);
 
             auto it = labelTable.find(data.target);
             if (it == labelTable.end())
@@ -389,12 +416,12 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             instr->operation = static_cast<uint32_t>(data.opeartion);
             instr->target    = (targetAddress >> 2);
 
-            target->push_back(instr);
+            pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
         }
         else /* if (std::holds_alternative<LAFormatData>(fragment.data) */
         {
-            auto data = std::get<LAFormatData>(fragment.data);
+            auto const& data = std::get<LAFormatData>(fragment.data);
 
             auto it = labelTable.find(data.target);
             if (it == labelTable.end())
@@ -414,7 +441,7 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
                 instr->destination = data.destination;
                 instr->immediate   = (targetAddress >> 16);
 
-                target->push_back(instr);
+                pTarget->push_back(instr);
                 pTargetAddress->MoveToNext();
             }
             targetAddress &= 0x00FF;
@@ -427,7 +454,7 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
                 instr->destination = data.destination;
                 instr->immediate   = targetAddress;
 
-                target->push_back(instr);
+                pTarget->push_back(instr);
                 pTargetAddress->MoveToNext();
             }
         }
@@ -444,19 +471,8 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
 GenerationResult GenerateCode(std::vector<Fragment> const& fragments)
 {
     ScanResult scanResult = ScanFragments(fragments);
-    if (auto& duplicates = scanResult.duplicateLabelRanges; !duplicates.empty())
-    {
-        std::vector<GenerationError> errors;
-        errors.reserve(duplicates.size());
-        std::transform(
-            duplicates.begin(), duplicates.end(), std::back_inserter(errors), [](auto duplicate) {
-                return GenerationError {
-                    GenerationError::Type::LabelAlreadyDefined,
-                    duplicate,
-                };
-            });
-        return CannotGenerate { std::move(errors) };
-    }
+    if (!scanResult.errors.empty())
+        return CannotGenerate { std::move(scanResult.errors) };
 
     return GenerateCodeInternal(fragments, scanResult);
 }
