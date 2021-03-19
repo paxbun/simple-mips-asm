@@ -16,6 +16,7 @@ struct GenerationError
     enum class Type
     {
         UndefinedLabelName,
+        OperandIsLabelInTextSegment,
         LabelAlreadyDefined,
         BranchTargetTooFar,
         JumpAddressTooBig,
