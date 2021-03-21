@@ -311,15 +311,15 @@ ParserOutput RFormatInstruction(Iterator begin, Iterator end)
 
     EXPECT_OPCODE(_rFormatTable);
     ADVANCE_CURRENT;
+    EXPECT_REGISTER(destination);
+    ADVANCE_CURRENT;
+    EXPECT_NEXT(Token::Type::Comma);
+    ADVANCE_CURRENT;
     EXPECT_REGISTER(source1);
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_REGISTER(source2);
-    ADVANCE_CURRENT;
-    EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
-    EXPECT_REGISTER(destination);
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
@@ -348,11 +348,11 @@ ParserOutput SRFormatInstruction(Iterator begin, Iterator end)
 
     EXPECT_OPCODE(_srFormatTable);
     ADVANCE_CURRENT;
-    EXPECT_REGISTER(source);
+    EXPECT_REGISTER(destination);
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
-    EXPECT_REGISTER(destination);
+    EXPECT_REGISTER(source);
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
@@ -397,11 +397,11 @@ ParserOutput BIFormatInstruction(Iterator begin, Iterator end)
 
     EXPECT_OPCODE(_biFormatTable);
     ADVANCE_CURRENT;
-    EXPECT_REGISTER(destination);
+    EXPECT_REGISTER(source);
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
-    EXPECT_REGISTER(source);
+    EXPECT_REGISTER(destination);
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
