@@ -46,4 +46,5 @@ if (SIMPLE_MIPS_ASM_TEST)
     endfunction()
 
     add_simple_mips_asm_test(TokenizationTest)
+    add_simple_mips_asm_test(ParsingTest)
 endif()
