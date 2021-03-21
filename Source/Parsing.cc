@@ -323,7 +323,7 @@ ParserOutput RFormatInstruction(Iterator begin, Iterator end)
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
-    RESULT((RFormatData { source1, source2, destination, type }));
+    RESULT((RFormatData { type, destination, source1, source2 }));
 }
 
 // JRFormatInstruction: JRFormatOpcode + Register + (NewLine | EOF)
@@ -337,7 +337,7 @@ ParserOutput JRFormatInstruction(Iterator begin, Iterator end)
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
-    RESULT((JRFormatData { source, type }));
+    RESULT((JRFormatData { type, source }));
 }
 
 // SRFormatInstruction: SRFormatOpcode + Register + Register + (Integer | HexInteger) + (NewLine |
@@ -362,7 +362,7 @@ ParserOutput SRFormatInstruction(Iterator begin, Iterator end)
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
-    RESULT((SRFormatData { source, destination, static_cast<uint8_t>(shiftAmount), type }));
+    RESULT((SRFormatData { type, destination, source, static_cast<uint8_t>(shiftAmount) }));
 }
 
 // IFormatInstruction: IFormatOpcode + Register + Register + (Integer | HexInteger) + (NewLine |
@@ -410,7 +410,7 @@ ParserOutput BIFormatInstruction(Iterator begin, Iterator end)
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
-    RESULT((BIFormatData { type, destination, source, target }));
+    RESULT((BIFormatData { type, source, destination, target }));
 }
 
 // IIFormatInstruction: IIFormatOpcode + Register + (Integer | HexInteger) + (NewLine | EOF)
@@ -457,7 +457,7 @@ ParserOutput OIFormatInstruction(Iterator begin, Iterator end)
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
 
-    RESULT((OIFormatData { type, operand1, operand2, static_cast<uint16_t>(offset) }));
+    RESULT((OIFormatData { type, operand2, static_cast<uint16_t>(offset), operand1 }));
 }
 
 // JFormatInstruction: JFormatOpcode + Word + (NewLine | EOF)

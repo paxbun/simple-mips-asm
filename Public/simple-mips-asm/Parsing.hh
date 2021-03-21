@@ -31,24 +31,24 @@ struct LabelData
 
 struct RFormatData
 {
+    RFormatFunction function;
+    uint8_t         destination;
     uint8_t         source1;
     uint8_t         source2;
-    uint8_t         destination;
-    RFormatFunction function;
 };
 
 struct JRFormatData
 {
-    uint8_t          source;
     JRFormatFunction function;
+    uint8_t          source;
 };
 
 struct SRFormatData
 {
+    SRFormatFunction function;
     uint8_t          source;
     uint8_t          destination;
     uint8_t          shiftAmount;
-    SRFormatFunction function;
 };
 
 struct IFormatData
@@ -62,8 +62,8 @@ struct IFormatData
 struct BIFormatData
 {
     BIFormatOperation operation;
-    uint8_t           destination;
     uint8_t           source;
+    uint8_t           destination;
     std::string_view  target;
 };
 
@@ -77,9 +77,9 @@ struct IIFormatData
 struct OIFormatData
 {
     OIFormatOperation operation;
-    uint8_t           operand1;
     uint8_t           operand2;
     uint16_t          offset;
+    uint8_t           operand1;
 };
 
 struct JFormatData
