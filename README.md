@@ -1,6 +1,6 @@
 # Simple MIPS Assembler
 
-Simple MIPS assembler implementation.
+Simple MIPS assembler implementation. Please read [report.pdf](report.pdf) for more information.
 
 # License
 
