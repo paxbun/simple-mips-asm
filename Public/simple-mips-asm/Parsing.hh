@@ -84,7 +84,7 @@ struct OIFormatData
 
 struct JFormatData
 {
-    JFormatOperation opeartion;
+    JFormatOperation operation;
     std::string_view target;
 };
 

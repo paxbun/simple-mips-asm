@@ -410,7 +410,7 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             }
 
             InstrConverter<JFormatInstr> instr;
-            instr->operation = static_cast<uint32_t>(data.opeartion);
+            instr->operation = static_cast<uint32_t>(data.operation);
             instr->target    = (targetAddress >> 2);
 
             pTarget->push_back(instr);
