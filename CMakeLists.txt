@@ -44,4 +44,6 @@ if (SIMPLE_MIPS_ASM_TEST)
         unset(EXE_NAME)
         unset(TEST_NAME)
     endfunction()
+
+    add_simple_mips_asm_test(TokenizationTest)
 endif()
