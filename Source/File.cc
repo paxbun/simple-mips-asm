@@ -53,4 +53,6 @@ FileWriteResult WriteFile(std::filesystem::path const& path, CanGenerate const& 
 
     for (uint32_t word : result.text) PrintWord(ofs, word);
     for (uint32_t word : result.data) PrintWord(ofs, word);
+
+    return CanWrite {};
 }
