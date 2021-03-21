@@ -12,7 +12,7 @@ namespace
 
 // ---------------------------------- Tokenizer output types ----------------------------------- //
 
-using StringIterator = std::string::const_iterator;
+using StringIterator = std::string_view::const_iterator;
 
 /// <summary>
 /// Returned when the tokenizer cannot recognize the given string.
@@ -164,7 +164,7 @@ Token MakeToken(Token::Type type, StringIterator begin, StringIterator end, Posi
 
 }
 
-TokenizationResult Tokenize(std::string const& code)
+TokenizationResult Tokenize(std::string_view const& code)
 {
     auto       begin = code.begin();
     auto const end   = code.end();

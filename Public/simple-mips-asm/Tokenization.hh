@@ -92,6 +92,6 @@ struct TokenizationResult
 /// </summary>
 /// <param name="code">the assembly code to tokenize</param>
 /// <returns>tokenization result</returns>
-TokenizationResult Tokenize(std::string const& code);
+TokenizationResult Tokenize(std::string_view const& code);
 
 #endif
