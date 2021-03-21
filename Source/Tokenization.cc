@@ -183,17 +183,17 @@ TokenizationResult Tokenize(std::string_view const& code)
 
             if (std::holds_alternative<CanTokenize>(result))
             {
-                auto output = std::get<CanTokenize>(result);
-                tokenized   = true;
+                auto const& output = std::get<CanTokenize>(result);
+                tokenized          = true;
                 tokens.push_back(MakeToken(output.tokenType, begin, output.tokenEnd, position));
                 begin = output.tokenEnd;
                 break;
             }
             else if (std::holds_alternative<CanTokenizeButError>(result))
             {
-                auto output = std::get<CanTokenizeButError>(result);
-                tokenized   = true;
-                auto token  = MakeToken(output.tokenType, begin, output.tokenEnd, position);
+                auto const& output = std::get<CanTokenizeButError>(result);
+                tokenized          = true;
+                auto token         = MakeToken(output.tokenType, begin, output.tokenEnd, position);
                 tokens.push_back(token);
                 errors.push_back({
                     output.errorType,
