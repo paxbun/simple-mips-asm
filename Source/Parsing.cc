@@ -93,30 +93,25 @@ bool IsOneOf(LeftT left, ValueTs... valuesToCompare)
 template <typename T>
 bool GetInteger(Iterator current, T& output)
 {
-    size_t integerValue = 0;
     if (current->type == Token::Type::Integer)
     {
         auto stringValue      = current->value;
         auto stringValueBegin = stringValue.data();
         auto stringValueEnd   = stringValueBegin + stringValue.size();
-        std::from_chars(stringValueBegin, stringValueEnd, integerValue, 10);
+        std::from_chars(stringValueBegin, stringValueEnd, output, 10);
     }
     else if (current->type == Token::Type::HexInteger)
     {
         auto stringValue      = current->value.substr(2);
         auto stringValueBegin = stringValue.data();
         auto stringValueEnd   = stringValueBegin + stringValue.size();
-        std::from_chars(stringValueBegin, stringValueEnd, integerValue, 16);
+        std::from_chars(stringValueBegin, stringValueEnd, output, 16);
     }
     else
     {
         return false;
     }
 
-    if (integerValue > std::numeric_limits<T>::max())
-        return false;
-
-    output = static_cast<T>(integerValue);
     return true;
 }
 
@@ -238,7 +233,7 @@ InstructionTable<LAFormatType> const _laFormatTable {
 // Checks whether the next incoming token indicates an immediate number.
 #define EXPECT_IMM(OutputVariableName)                                                             \
     EXPECT_NEXT(Token::Type::Integer, Token::Type::HexInteger);                                    \
-    uint32_t OutputVariableName;                                                                   \
+    int64_t OutputVariableName;                                                                    \
     if (!GetInteger(current, OutputVariableName))                                                  \
         UNEXPECTED_VALUE;
 
@@ -357,7 +352,7 @@ ParserOutput SRFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(shiftAmount);
-    if (shiftAmount >= 32)
+    if (shiftAmount < 0 || 32 <= shiftAmount)
         UNEXPECTED_VALUE;
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
@@ -382,7 +377,8 @@ ParserOutput IFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(immediate);
-    if (immediate >= std::numeric_limits<uint16_t>::max())
+    if (immediate < static_cast<int64_t>(std::numeric_limits<int16_t>::min())
+        || static_cast<int64_t>(std::numeric_limits<uint16_t>::max()) < immediate)
         UNEXPECTED_VALUE;
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
@@ -425,7 +421,8 @@ ParserOutput IIFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(immediate);
-    if (immediate >= std::numeric_limits<uint16_t>::max())
+    if (immediate < static_cast<int64_t>(std::numeric_limits<int16_t>::min())
+        || static_cast<int64_t>(std::numeric_limits<uint16_t>::max()) < immediate)
         UNEXPECTED_VALUE;
     ADVANCE_CURRENT;
     EXPECT_NEW_LINE_OR_EOF;
@@ -446,7 +443,8 @@ ParserOutput OIFormatInstruction(Iterator begin, Iterator end)
     EXPECT_NEXT(Token::Type::Comma);
     ADVANCE_CURRENT;
     EXPECT_IMM(offset);
-    if (offset >= std::numeric_limits<uint16_t>::max())
+    if (offset < static_cast<int64_t>(std::numeric_limits<int16_t>::min())
+        || static_cast<int64_t>(std::numeric_limits<uint16_t>::max()) < offset)
         UNEXPECTED_VALUE;
     ADVANCE_CURRENT;
     EXPECT_NEXT(Token::Type::BracketOpen);
