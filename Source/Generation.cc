@@ -142,9 +142,6 @@ struct Address
     }
 };
 
-/// </summary>
-using LabelTable = std::unordered_map<std::string_view, Address>;
-
 /// <summary>
 /// A key-value storage where the key is a label and the value is an address.
 /// </summary>
