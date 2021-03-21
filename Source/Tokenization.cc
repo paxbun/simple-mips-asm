@@ -95,9 +95,9 @@ TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
     {                                                                                              \
         if (InitialCondition)                                                                      \
         {                                                                                          \
-            auto tokenEnd = std::find_if(begin, end, IsDelimiter);                                 \
+            auto tokenEnd = std::find_if(begin + 1, end, IsDelimiter);                             \
             auto invalidCharIt                                                                     \
-                = std::find_if_not(begin, end, [](char c) { return (Verification); });             \
+                = std::find_if_not(begin + 1, end, [](char c) { return (Verification); });         \
             if (invalidCharIt != tokenEnd)                                                         \
             {                                                                                      \
                 return CanTokenizeButError {                                                       \
@@ -111,9 +111,11 @@ TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
         return CannotTokenize {};                                                                  \
     }
 
-DEFINE_COMPLEX_TOKENIZER(isdigit(*begin), isdigit(c), Integer);
+DEFINE_COMPLEX_TOKENIZER((isdigit(*begin) || *begin == '-'), isdigit(c), Integer);
 
-DEFINE_COMPLEX_TOKENIZER(isalpha(*begin), (isalpha(c) || isdigit(c) || c == '_'), Word);
+DEFINE_COMPLEX_TOKENIZER((isalpha(*begin) || *begin == '_'),
+                         (isalpha(c) || isdigit(c) || c == '_'),
+                         Word);
 
 TokenizerOutput WhitespaceTokenizer(StringIterator begin, StringIterator end)
 {

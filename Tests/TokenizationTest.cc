@@ -11,6 +11,7 @@
 char const _validCode[] = R"==(
        .data
 array: .word 1
+       .word -15
        .word 0x12
        .text
 main:  addiu $2, $3, 14
@@ -46,6 +47,8 @@ TEST(TokenizationTest, ValidCode)
         T(Whitespace), T(Dot), T(Word), T(NewLine),
         // array: .word 1
         T(Word), T(Colon), T(Whitespace), T(Dot), T(Word), T(Whitespace), T(Integer), T(NewLine),
+        // .word -15
+        T(Whitespace), T(Dot), T(Word), T(Whitespace), T(Integer), T(NewLine),
         // .word 0x12
         T(Whitespace), T(Dot), T(Word), T(Whitespace), T(HexInteger), T(NewLine),
         // .text
