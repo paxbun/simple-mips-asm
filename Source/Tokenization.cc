@@ -166,7 +166,7 @@ Token MakeToken(Token::Type type, StringIterator begin, StringIterator end, Posi
 
 }
 
-TokenizationResult Tokenize(std::string_view const& code)
+TokenizationResult Tokenize(std::string_view code)
 {
     auto       begin = code.begin();
     auto const end   = code.end();
