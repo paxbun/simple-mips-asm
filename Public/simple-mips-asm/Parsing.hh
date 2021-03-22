@@ -46,8 +46,8 @@ struct JRFormatData
 struct SRFormatData
 {
     SRFormatFunction function;
-    uint8_t          source;
     uint8_t          destination;
+    uint8_t          source;
     uint8_t          shiftAmount;
 };
 
