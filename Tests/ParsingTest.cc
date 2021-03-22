@@ -92,7 +92,12 @@ constexpr bool operator==(LabelData const& lhs, LabelData const& rhs) noexcept
 DEFINE_BITWISE_EQUALITY(RFormatData);
 DEFINE_BITWISE_EQUALITY(JRFormatData);
 DEFINE_BITWISE_EQUALITY(SRFormatData);
-DEFINE_BITWISE_EQUALITY(IFormatData);
+
+constexpr bool operator==(IFormatData const& lhs, IFormatData const& rhs) noexcept
+{
+    return lhs.operation == rhs.operation && lhs.destination == rhs.destination
+           && lhs.source == rhs.source && lhs.immediate == rhs.immediate;
+}
 
 constexpr bool operator==(BIFormatData const& lhs, BIFormatData const& rhs) noexcept
 {
@@ -100,8 +105,17 @@ constexpr bool operator==(BIFormatData const& lhs, BIFormatData const& rhs) noex
            && lhs.source == rhs.source && lhs.target == rhs.target;
 }
 
-DEFINE_BITWISE_EQUALITY(IIFormatData);
-DEFINE_BITWISE_EQUALITY(OIFormatData);
+constexpr bool operator==(IIFormatData const& lhs, IIFormatData const& rhs) noexcept
+{
+    return lhs.operation == rhs.operation && lhs.destination == rhs.destination
+           && lhs.immediate == rhs.immediate;
+}
+
+constexpr bool operator==(OIFormatData const& lhs, OIFormatData const& rhs) noexcept
+{
+    return lhs.operation == rhs.operation && lhs.operand2 == rhs.operand2
+           && lhs.offset == rhs.offset && lhs.operand1 == rhs.operand1;
+}
 
 constexpr bool operator==(JFormatData const& lhs, JFormatData const& rhs) noexcept
 {
@@ -185,7 +199,19 @@ TEST(ParsingTest, ValidCode1)
     // clang-format on
 
     auto const& fragments = parsingResult.fragments;
-    ASSERT_EQ_VECTOR(fragments, expected, lit->data, *rit);
+    // ASSERT_EQ_VECTOR(fragments, expected, lit->data, *rit);
+    {
+        ASSERT_EQ(fragments.size(), expected.size());
+        auto lit = fragments.begin(), lend = fragments.end();
+        auto rit = expected.begin(), rend = expected.end();
+        for (; lit != lend && rit != rend; ++lit, ++rit)
+        {
+            auto const& left  = lit->data;
+            auto const& right = *rit;
+            ASSERT_EQ(left.index(), right.index());
+            ASSERT_EQ(lit->data, *rit);
+        }
+    }
 }
 
 TEST(ParsingTest, ValidCode2)
