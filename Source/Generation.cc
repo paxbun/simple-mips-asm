@@ -11,110 +11,6 @@
 namespace
 {
 
-// ---------------------------------  Instruction definitions ---------------------------------- //
-
-struct RFormatInstr
-{
-    uint32_t : 6;
-    uint32_t source1 : 5;
-    uint32_t source2 : 5;
-    uint32_t destination : 5;
-    uint32_t : 5;
-    uint32_t function : 6;
-};
-
-struct JRFormatInstr
-{
-    uint32_t : 6;
-    uint32_t source : 5;
-    uint32_t : 15;
-    uint32_t function : 6;
-};
-
-struct SRFormatInstr
-{
-    uint32_t : 11;
-    uint32_t source : 5;
-    uint32_t destination : 5;
-    uint32_t shiftAmount : 5;
-    uint32_t function : 6;
-};
-
-struct IFormatInstr
-{
-    uint32_t operation : 6;
-    uint32_t source : 5;
-    uint32_t destination : 5;
-    uint32_t immediate : 16;
-};
-
-struct BIFormatInstr
-{
-    uint32_t operation : 6;
-    uint32_t source : 5;
-    uint32_t destination : 5;
-    uint32_t offset : 16;
-};
-
-struct IIFormatInstr
-{
-    uint32_t operation : 6;
-    uint32_t : 5;
-    uint32_t destination : 5;
-    uint32_t immediate : 16;
-};
-
-struct OIFormatInstr
-{
-    uint32_t operation : 6;
-    uint32_t operand1 : 5;
-    uint32_t operand2 : 5;
-    uint32_t offset : 16;
-};
-
-struct JFormatInstr
-{
-    uint32_t operation : 6;
-    uint32_t target : 26;
-};
-
-static_assert(sizeof(RFormatInstr) == sizeof(uint32_t));
-
-static_assert(sizeof(JRFormatInstr) == sizeof(uint32_t));
-
-static_assert(sizeof(SRFormatInstr) == sizeof(uint32_t));
-
-static_assert(sizeof(IFormatInstr) == sizeof(uint32_t));
-
-static_assert(sizeof(BIFormatInstr) == sizeof(uint32_t));
-
-static_assert(sizeof(IIFormatInstr) == sizeof(uint32_t));
-
-static_assert(sizeof(OIFormatInstr) == sizeof(uint32_t));
-
-static_assert(sizeof(JFormatInstr) == sizeof(uint32_t));
-
-template <typename Instr>
-union InstrConverter
-{
-    Instr    instr;
-    uint32_t word;
-
-    static_assert(sizeof(Instr) == sizeof(uint32_t));
-
-    constexpr InstrConverter() noexcept : word { 0 } {}
-
-    constexpr Instr* operator->() noexcept
-    {
-        return &instr;
-    }
-
-    constexpr operator uint32_t() const noexcept
-    {
-        return word;
-    }
-};
-
 // ----------------------------------------  Utilities ----------------------------------------- //
 
 /// <summary>
@@ -277,11 +173,12 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
         {
             auto data = std::get<RFormatData>(fragment.data);
 
-            InstrConverter<RFormatInstr> instr;
-            instr->source1     = data.source1;
-            instr->source2     = data.source2;
-            instr->destination = data.destination;
-            instr->function    = static_cast<uint32_t>(data.function);
+            // R: | 6 | src1: 5 | src2: 5 | dest: 5 | 5 | funct: 6 |
+            uint32_t instr = 0;
+            instr |= (static_cast<uint32_t>(data.source1 & 0b11111u) << 21);
+            instr |= (static_cast<uint32_t>(data.source2 & 0b11111u) << 16);
+            instr |= (static_cast<uint32_t>(data.destination & 0b11111u) << 11);
+            instr |= ((static_cast<uint32_t>(data.function) & 0b111111u) << 0);
 
             pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
@@ -290,9 +187,10 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
         {
             auto data = std::get<JRFormatData>(fragment.data);
 
-            InstrConverter<JRFormatInstr> instr;
-            instr->source   = data.source;
-            instr->function = static_cast<uint32_t>(data.function);
+            // JR: | 6 | src: 5 | 15 | funct: 6 |
+            uint32_t instr = 0;
+            instr |= (static_cast<uint32_t>(data.source & 0b11111u) << 21);
+            instr |= ((static_cast<uint32_t>(data.function) & 0b111111u) << 0);
 
             pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
@@ -301,11 +199,12 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
         {
             auto data = std::get<SRFormatData>(fragment.data);
 
-            InstrConverter<SRFormatInstr> instr;
-            instr->source      = data.source;
-            instr->destination = data.destination;
-            instr->shiftAmount = data.shiftAmount;
-            instr->function    = static_cast<uint32_t>(data.function);
+            // SR: | 11 | src: 5 | dest: 5 | shamt: 5 | funct: 6 |
+            uint32_t instr = 0;
+            instr |= (static_cast<uint32_t>(data.source & 0b11111u) << 16);
+            instr |= (static_cast<uint32_t>(data.destination & 0b11111u) << 11);
+            instr |= (static_cast<uint32_t>(data.shiftAmount & 0b11111u) << 6);
+            instr |= ((static_cast<uint32_t>(data.function) & 0b111111u) << 0);
 
             pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
@@ -314,11 +213,12 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
         {
             auto data = std::get<IFormatData>(fragment.data);
 
-            InstrConverter<IFormatInstr> instr;
-            instr->operation   = static_cast<uint32_t>(data.operation);
-            instr->source      = data.source;
-            instr->destination = data.destination;
-            instr->immediate   = data.immediate;
+            // I: | op: 6 | src: 5 | dest: 5 | imm: 16 |
+            uint32_t instr = 0;
+            instr |= ((static_cast<uint32_t>(data.operation) & 0b111111u) << 26);
+            instr |= (static_cast<uint32_t>(data.source & 0b11111u) << 21);
+            instr |= (static_cast<uint32_t>(data.destination & 0b11111u) << 16);
+            instr |= (static_cast<uint32_t>(data.immediate) << 0);
 
             pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
@@ -340,9 +240,9 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             uint32_t currentAddress = *pTargetAddress;
             uint32_t targetAddress  = it->second;
 
-            auto difference = static_cast<int32_t>(targetAddress - currentAddress - 4);
-            if (difference < static_cast<int32_t>(std::numeric_limits<int16_t>::min()) * 4
-                || static_cast<int32_t>(std::numeric_limits<int16_t>::max()) * 4 < difference)
+            auto difference = static_cast<int32_t>(targetAddress - currentAddress - 4) / 4;
+            if (difference < static_cast<int32_t>(std::numeric_limits<int16_t>::min())
+                || static_cast<int32_t>(std::numeric_limits<int16_t>::max()) < difference)
             {
                 errors.push_back(GenerationError {
                     GenerationError::Type::BranchTargetTooFar,
@@ -351,11 +251,12 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
                 continue;
             }
 
-            InstrConverter<BIFormatInstr> instr;
-            instr->operation   = static_cast<uint32_t>(data.operation);
-            instr->source      = data.source;
-            instr->destination = data.destination;
-            instr->offset      = difference / 4;
+            // BI: | op: 6 | src: 5 | dest: 5 | imm: 16 |
+            uint32_t instr = 0;
+            instr |= ((static_cast<uint32_t>(data.operation) & 0b111111u) << 26);
+            instr |= (static_cast<uint32_t>(data.source & 0b11111u) << 21);
+            instr |= (static_cast<uint32_t>(data.destination & 0b11111u) << 16);
+            instr |= ((static_cast<uint32_t>(difference & 0xFFFF)) << 0);
 
             pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
@@ -364,10 +265,11 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
         {
             auto data = std::get<IIFormatData>(fragment.data);
 
-            InstrConverter<IIFormatInstr> instr;
-            instr->operation   = static_cast<uint32_t>(data.operation);
-            instr->destination = data.destination;
-            instr->immediate   = data.immediate;
+            // II: | op: 6 | 5 | dest: 5 | imm: 16 |
+            uint32_t instr = 0;
+            instr |= ((static_cast<uint32_t>(data.operation) & 0b111111) << 26);
+            instr |= (static_cast<uint32_t>(data.destination & 0b11111) << 16);
+            instr |= (static_cast<uint32_t>(data.immediate) << 0);
 
             pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
@@ -376,11 +278,12 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
         {
             auto data = std::get<OIFormatData>(fragment.data);
 
-            InstrConverter<OIFormatInstr> instr;
-            instr->operation = static_cast<uint32_t>(data.operation);
-            instr->operand1  = data.operand1;
-            instr->operand2  = data.operand2;
-            instr->offset    = data.offset;
+            // OI: | op: 6 | opr1: 5 | opr2: 5 | offset: 16 |
+            uint32_t instr = 0;
+            instr |= ((static_cast<uint32_t>(data.operation) & 0b111111) << 26);
+            instr |= (static_cast<uint32_t>(data.operand1 & 0b11111) << 21);
+            instr |= (static_cast<uint32_t>(data.operand2 & 0b11111) << 16);
+            instr |= (static_cast<uint32_t>(data.offset) << 0);
 
             pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
@@ -399,8 +302,8 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
                 continue;
             }
 
-            uint32_t targetAddress = it->second;
-            if (targetAddress >= (1 << 28))
+            uint32_t targetAddress = it->second / 4;
+            if (targetAddress >= (1 << 26))
             {
                 errors.push_back(GenerationError {
                     GenerationError::Type::JumpAddressTooBig,
@@ -409,9 +312,10 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
                 continue;
             }
 
-            InstrConverter<JFormatInstr> instr;
-            instr->operation = static_cast<uint32_t>(data.operation);
-            instr->target    = (targetAddress >> 2);
+            // J: | op: 6 | target: 26 |
+            uint32_t instr = 0;
+            instr |= ((static_cast<uint32_t>(data.operation) & 0b111111) << 26);
+            instr |= ((targetAddress & 0x03FFFFFF) << 0);
 
             pTarget->push_back(instr);
             pTargetAddress->MoveToNext();
@@ -433,10 +337,11 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
             uint32_t targetAddress = it->second;
             if (targetAddress >= (1 << 16))
             {
-                InstrConverter<IIFormatInstr> instr;
-                instr->operation   = static_cast<uint32_t>(IIFormatOperation::LUI);
-                instr->destination = data.destination;
-                instr->immediate   = (targetAddress >> 16);
+                // II: | op: 6 | 5 | dest: 5 | imm: 16 |
+                uint32_t instr = 0;
+                instr |= (static_cast<uint32_t>(IIFormatOperation::LUI) << 26);
+                instr |= (static_cast<uint32_t>(data.destination & 0b11111) << 16);
+                instr |= ((targetAddress >> 16) << 0);
 
                 pTarget->push_back(instr);
                 pTargetAddress->MoveToNext();
@@ -445,11 +350,12 @@ GenerationResult GenerateCodeInternal(std::vector<Fragment> const& fragments,
 
             if (targetAddress)
             {
-                InstrConverter<IFormatInstr> instr;
-                instr->operation   = static_cast<uint32_t>(IFormatOperation::ORI);
-                instr->source      = data.destination;
-                instr->destination = data.destination;
-                instr->immediate   = targetAddress;
+                // I: | op: 6 | src: 5 | dest: 5 | imm: 16 |
+                uint32_t instr = 0;
+                instr |= (static_cast<uint32_t>(IFormatOperation::ORI) << 26);
+                instr |= (static_cast<uint32_t>(data.destination & 0b11111u) << 21);
+                instr |= (static_cast<uint32_t>(data.destination & 0b11111u) << 16);
+                instr |= (targetAddress << 0);
 
                 pTarget->push_back(instr);
                 pTargetAddress->MoveToNext();
