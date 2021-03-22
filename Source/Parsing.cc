@@ -186,7 +186,7 @@ InstructionTable<LAFormatType> const _laFormatTable {
 #define RESULT(data) return CanParse { data, current == end ? current : current + 1 };
 
 // Advances the iterator defined by DEFINE_CURRENT.
-#define ADVANCE_CURRENT                                                                            \
+#define ADVANCE_FOR_NEXT                                                                           \
     {                                                                                              \
         ++current;                                                                                 \
         if (current == end)                                                                        \
@@ -195,7 +195,7 @@ InstructionTable<LAFormatType> const _laFormatTable {
 
 // Advances the iterator until non-whitespace token appears.
 #define SKIP_WHITESPACES                                                                           \
-    while (current->type == Token::Type::Whitespace) ADVANCE_CURRENT
+    while (current->type == Token::Type::Whitespace) ADVANCE_FOR_NEXT
 
 // Advances the iterator until non-whitespace token appears. If that first non-whitespace token's
 // type is not the expected type, returns CannotParse with UnexpectedToken.
@@ -224,7 +224,7 @@ InstructionTable<LAFormatType> const _laFormatTable {
 // Checks whether the next incoming tokens indicate a register.
 #define EXPECT_REGISTER(OutputVariableName)                                                        \
     EXPECT_NEXT(Token::Type::Dollar);                                                              \
-    ADVANCE_CURRENT;                                                                               \
+    ADVANCE_FOR_NEXT;                                                                              \
     EXPECT_NEXT(Token::Type::Integer);                                                             \
     uint8_t OutputVariableName;                                                                    \
     if (!GetInteger(current, OutputVariableName) || NumRegisters <= OutputVariableName)            \
@@ -238,8 +238,9 @@ InstructionTable<LAFormatType> const _laFormatTable {
         UNEXPECTED_VALUE;
 
 // Checks whether the next incoming token is a new line character or EOF.
-#define EXPECT_NEW_LINE_OR_EOF                                                                     \
-    while (current != end && current->type == Token::Type::Whitespace) ++current;                  \
+#define ADVANCE_FOR_NEW_LINE_OR_EOF                                                                \
+    do ++current;                                                                                  \
+    while (current != end && current->type == Token::Type::Whitespace);                            \
     if (current != end && current->type != Token::Type::NewLine)                                   \
     UNEXPECTED_TOKEN
 
@@ -249,7 +250,7 @@ ParserOutput Data(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_NEXT(Token::Type::Dot);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_WORD("data");
 
     RESULT(DataDirData {});
@@ -261,7 +262,7 @@ ParserOutput Text(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_NEXT(Token::Type::Dot);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_WORD("text");
 
     RESULT(TextDirData {});
@@ -273,15 +274,14 @@ ParserOutput Word(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_NEXT(Token::Type::Dot);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_WORD("word");
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Integer, Token::Type::HexInteger);
     uint32_t result;
     if (!GetInteger<uint32_t>(current, result))
         UNEXPECTED_VALUE;
-    ADVANCE_CURRENT;
-    EXPECT_NEW_LINE_OR_EOF;
+    ADVANCE_FOR_NEW_LINE_OR_EOF;
 
     RESULT(WordDirData { result });
 }
@@ -293,7 +293,7 @@ ParserOutput Label(Iterator begin, Iterator end)
 
     EXPECT_NEXT(Token::Type::Word);
     auto labelName = current->value;
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Colon);
 
     RESULT(LabelData { labelName });
@@ -305,18 +305,17 @@ ParserOutput RFormatInstruction(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_OPCODE(_rFormatTable);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(destination);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(source1);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(source2);
-    ADVANCE_CURRENT;
-    EXPECT_NEW_LINE_OR_EOF;
+    ADVANCE_FOR_NEW_LINE_OR_EOF;
 
     RESULT((RFormatData { type, destination, source1, source2 }));
 }
@@ -327,10 +326,9 @@ ParserOutput JRFormatInstruction(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_OPCODE(_jrFormatTable);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(source);
-    ADVANCE_CURRENT;
-    EXPECT_NEW_LINE_OR_EOF;
+    ADVANCE_FOR_NEW_LINE_OR_EOF;
 
     RESULT((JRFormatData { type, source }));
 }
@@ -342,20 +340,19 @@ ParserOutput SRFormatInstruction(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_OPCODE(_srFormatTable);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(destination);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(source);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_IMM(shiftAmount);
     if (shiftAmount < 0 || 32 <= shiftAmount)
         UNEXPECTED_VALUE;
-    ADVANCE_CURRENT;
-    EXPECT_NEW_LINE_OR_EOF;
+    ADVANCE_FOR_NEW_LINE_OR_EOF;
 
     RESULT((SRFormatData { type, destination, source, static_cast<uint8_t>(shiftAmount) }));
 }
@@ -367,21 +364,20 @@ ParserOutput IFormatInstruction(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_OPCODE(_iFormatTable);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(destination);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(source);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_IMM(immediate);
     if (immediate < static_cast<int64_t>(std::numeric_limits<int16_t>::min())
         || static_cast<int64_t>(std::numeric_limits<uint16_t>::max()) < immediate)
         UNEXPECTED_VALUE;
-    ADVANCE_CURRENT;
-    EXPECT_NEW_LINE_OR_EOF;
+    ADVANCE_FOR_NEW_LINE_OR_EOF;
 
     RESULT((IFormatData { type, destination, source, static_cast<uint16_t>(immediate) }));
 }
@@ -392,19 +388,18 @@ ParserOutput BIFormatInstruction(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_OPCODE(_biFormatTable);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(source);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(destination);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Word);
     auto target = current->value;
-    ADVANCE_CURRENT;
-    EXPECT_NEW_LINE_OR_EOF;
+    ADVANCE_FOR_NEW_LINE_OR_EOF;
 
     RESULT((BIFormatData { type, source, destination, target }));
 }
@@ -415,17 +410,16 @@ ParserOutput IIFormatInstruction(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_OPCODE(_iiFormatTable);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(destination);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_IMM(immediate);
     if (immediate < static_cast<int64_t>(std::numeric_limits<int16_t>::min())
         || static_cast<int64_t>(std::numeric_limits<uint16_t>::max()) < immediate)
         UNEXPECTED_VALUE;
-    ADVANCE_CURRENT;
-    EXPECT_NEW_LINE_OR_EOF;
+    ADVANCE_FOR_NEW_LINE_OR_EOF;
 
     RESULT((IIFormatData { type, destination, static_cast<uint16_t>(immediate) }));
 }
@@ -437,23 +431,22 @@ ParserOutput OIFormatInstruction(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_OPCODE(_oiFormatTable);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(operand2);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_IMM(offset);
     if (offset < static_cast<int64_t>(std::numeric_limits<int16_t>::min())
         || static_cast<int64_t>(std::numeric_limits<uint16_t>::max()) < offset)
         UNEXPECTED_VALUE;
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::BracketOpen);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(operand1);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::BracketClose);
-    ADVANCE_CURRENT;
-    EXPECT_NEW_LINE_OR_EOF;
+    ADVANCE_FOR_NEW_LINE_OR_EOF;
 
     RESULT((OIFormatData { type, operand2, static_cast<uint16_t>(offset), operand1 }));
 }
@@ -464,11 +457,10 @@ ParserOutput JFormatInstruction(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_OPCODE(_jFormatTable);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Word);
     auto target = current->value;
-    ADVANCE_CURRENT;
-    EXPECT_NEW_LINE_OR_EOF;
+    ADVANCE_FOR_NEW_LINE_OR_EOF;
 
     RESULT((JFormatData { type, target }));
 }
@@ -479,15 +471,14 @@ ParserOutput LAFormatInstruction(Iterator begin, Iterator end)
     DEFINE_CURRENT;
 
     EXPECT_OPCODE(_laFormatTable);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_REGISTER(destination);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Comma);
-    ADVANCE_CURRENT;
+    ADVANCE_FOR_NEXT;
     EXPECT_NEXT(Token::Type::Word);
     auto target = current->value;
-    ADVANCE_CURRENT;
-    EXPECT_NEW_LINE_OR_EOF;
+    ADVANCE_FOR_NEW_LINE_OR_EOF;
 
     RESULT((LAFormatData { type, destination, target }));
 }
@@ -537,7 +528,7 @@ ParseResult Parse(std::vector<Token> const& tokens)
             auto result = parser(begin, end);
             if (std::holds_alternative<CanParse>(result))
             {
-                auto output = std::get<CanParse>(result);
+                auto const& output = std::get<CanParse>(result);
                 fragments.push_back(
                     { output.data, { begin->range.begin, output.fragmentEnd[-1].range.end } });
                 begin  = output.fragmentEnd;
@@ -546,7 +537,7 @@ ParseResult Parse(std::vector<Token> const& tokens)
             }
             else /* if (std::holds_alternative<CannotParse>(result)) */
             {
-                auto output = std::get<CannotParse>(result);
+                auto const& output = std::get<CannotParse>(result);
                 if (maxErrorAt <= output.errorAt)
                 {
                     maxErrorAt = output.errorAt;
