@@ -66,38 +66,14 @@ TokenizerOutput SingleCharacterTokenizer(StringIterator begin, StringIterator en
     return CanTokenize { begin + 1, TokenTypeValue };
 }
 
-TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
-{
-    if (std::distance(begin, end) >= 2 && begin[0] == '0' && begin[1] == 'x')
-    {
-        auto tokenEnd = std::find_if(begin, end, IsDelimiter);
-
-        auto nonHexadecimalCharIt = std::find_if_not(begin + 2, tokenEnd, [](char c) {
-            return isdigit(c) || ('A' <= toupper(c) && toupper(c) <= 'F');
-        });
-        if (nonHexadecimalCharIt != tokenEnd)
-        {
-            return CanTokenizeButError {
-                tokenEnd,
-                Token::Type::HexInteger,
-                TokenizationError::Type::InvalidFormat,
-            };
-        }
-
-        return CanTokenize { tokenEnd, Token::Type::HexInteger };
-    }
-
-    return CannotTokenize {};
-}
-
-#define DEFINE_COMPLEX_TOKENIZER(InitialCondition, Verification, TokenType)                        \
+#define DEFINE_COMPLEX_TOKENIZER(InitialCondition, Verification, Skip, TokenType)                  \
     TokenizerOutput TokenType##Tokenizer(StringIterator begin, StringIterator end)                 \
     {                                                                                              \
         if (InitialCondition)                                                                      \
         {                                                                                          \
-            auto tokenEnd = std::find_if(begin + 1, end, IsDelimiter);                             \
+            auto tokenEnd = std::find_if(begin + (Skip), end, IsDelimiter);                        \
             auto invalidCharIt                                                                     \
-                = std::find_if_not(begin + 1, end, [](char c) { return (Verification); });         \
+                = std::find_if_not(begin + (Skip), end, [](char c) { return (Verification); });    \
             if (invalidCharIt != tokenEnd)                                                         \
             {                                                                                      \
                 return CanTokenizeButError {                                                       \
@@ -111,10 +87,16 @@ TokenizerOutput HexIntegerTokenizer(StringIterator begin, StringIterator end)
         return CannotTokenize {};                                                                  \
     }
 
-DEFINE_COMPLEX_TOKENIZER((isdigit(*begin) || *begin == '-'), isdigit(c), Integer);
+DEFINE_COMPLEX_TOKENIZER((std::distance(begin, end) >= 2 && begin[0] == '0' && begin[1] == 'x'),
+                         (isdigit(c) || ('A' <= toupper(c) && toupper(c) <= 'F')),
+                         2,
+                         HexInteger);
+
+DEFINE_COMPLEX_TOKENIZER((isdigit(*begin) || *begin == '-'), isdigit(c), 1, Integer);
 
 DEFINE_COMPLEX_TOKENIZER((isalpha(*begin) || *begin == '_'),
                          (isalpha(c) || isdigit(c) || c == '_'),
+                         1,
                          Word);
 
 TokenizerOutput WhitespaceTokenizer(StringIterator begin, StringIterator end)
