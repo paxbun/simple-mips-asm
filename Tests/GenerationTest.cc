@@ -60,8 +60,7 @@ sum: sltiu $1, $2, 1
 sum_exit:
     addu $4, $3, $0
     jr $31
-exit:
-)==";
+exit:)==";
 
 TEST(GenerationTest, ValidCode1)
 {
