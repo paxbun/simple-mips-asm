@@ -13,7 +13,7 @@ namespace
 
 std::ostream& PrintWord(std::ostream& os, uint32_t word)
 {
-    return os << "0x" << std::hex << std::setfill('0') << std::setw(8) << word << '\n';
+    return os << "0x" << std::hex << word << '\n';
 }
 
 }
@@ -46,10 +46,8 @@ FileWriteResult WriteFile(std::filesystem::path const& path, CanGenerate const& 
     if (!ofs)
         return CannotWrite { FileWriteError::Type::CannotOpenFile };
 
-    ofs << std::uppercase;
-
-    PrintWord(ofs, static_cast<uint32_t>(result.text.size()));
-    PrintWord(ofs, static_cast<uint32_t>(result.data.size()));
+    PrintWord(ofs, static_cast<uint32_t>(result.text.size() * 4));
+    PrintWord(ofs, static_cast<uint32_t>(result.data.size() * 4));
 
     for (uint32_t word : result.text) PrintWord(ofs, word);
     for (uint32_t word : result.data) PrintWord(ofs, word);
