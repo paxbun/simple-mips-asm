@@ -98,14 +98,14 @@ bool GetInteger(Iterator current, T& output)
         auto stringValue      = current->value;
         auto stringValueBegin = stringValue.data();
         auto stringValueEnd   = stringValueBegin + stringValue.size();
-        std::from_chars(stringValueBegin, stringValueEnd, output, 10);
+        return std::from_chars(stringValueBegin, stringValueEnd, output, 10).ec == std::errc {};
     }
     else if (current->type == Token::Type::HexInteger)
     {
         auto stringValue      = current->value.substr(2);
         auto stringValueBegin = stringValue.data();
         auto stringValueEnd   = stringValueBegin + stringValue.size();
-        std::from_chars(stringValueBegin, stringValueEnd, output, 16);
+        return std::from_chars(stringValueBegin, stringValueEnd, output, 16).ec == std::errc {};
     }
     else
     {
